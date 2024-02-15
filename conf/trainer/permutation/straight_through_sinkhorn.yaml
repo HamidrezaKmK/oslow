@@ -1,0 +1,6 @@
+method: straight-through-sinkhorn
+temp: .1
+iters: 20
+
+# for parent config
+permutation_batch_size: 128

@@ -1,0 +1,23 @@
+
+num_samples: 10000
+graph:
+  graph_type: full
+  num_nodes: 3
+  seed: 42
+noise_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: 42
+  noise_type: laplace
+  loc: 0
+  scale: 1
+link_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: 42
+  noise_type: uniform
+  low: 1
+  high: 2
+link: linear
+perform_normalization: true
+additive: false
+post_non_linear_transform: null
+seed: 42

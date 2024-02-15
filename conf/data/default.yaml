@@ -1,0 +1,5 @@
+defaults:
+  - _self_
+  - dataset: synthetic_sinusoid
+
+standard: true # very important to set this to true for model ensemble to work better

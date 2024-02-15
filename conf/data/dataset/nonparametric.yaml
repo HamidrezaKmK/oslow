@@ -1,0 +1,19 @@
+
+num_samples: 2000
+graph:
+  graph_type: full
+  num_nodes: 3
+  seed: 42
+noise_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: 42
+  noise_type: normal
+  loc: 0
+  scale: 1
+s_rbf_kernel_gamma: 1.0
+t_rbf_kernel_gamma: 1.0
+invertibility_coefficient: 1.0
+perform_normalization: true
+additive: false
+post_non_linear_transform: null
+seed: 42

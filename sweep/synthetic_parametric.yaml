@@ -1,0 +1,45 @@
+---
+program: train.py
+name: synthetic_parametric
+method: random
+metric:
+    goal: minimize
+    name: permutation/best_backward_penalty
+parameters:
+    data.dataset.num_samples:
+        values: [1000, 5000, 10000, 50000]
+
+    data.dataset.graph.num_nodes:
+        values: [3, 4, 5, 10, 25]
+    
+    trainer.flow_optimizer.lr:
+        values: [0.005, 0.0005, 0.00005]
+    
+    data/dataset:
+        values: [synthetic_sinusoid, synthetic_cubic, linear_laplace]
+
+    trainer/permutation:
+        values: [contrastive_div, gumbel_top_k, soft_sinkhorn, straight_through_sinkhorn, straight_through_softsort]
+    
+    model:
+        values: [specified, misspecified]
+    
+    trainer.max_epochs:
+        values: [30, 50, 100, 500]
+
+    trainer.perform_final_buffer_search:
+        values: [false, true]
+
+    trainer.temperature_scheduler:
+        values: [constant, linear]
+    
+    data.dataset.additive:
+        values: [false, true]
+
+command:
+    - ${env}
+    - ./slurm/train_runner.sh
+    - model.additive=false
+    - trainer.birkhoff=null
+    - ${args_no_hyphens}
+    - test_run=false

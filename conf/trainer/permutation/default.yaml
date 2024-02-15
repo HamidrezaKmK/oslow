@@ -1,0 +1,6 @@
+method: gumbel-top-k
+num_samples: 128
+different_flow_loss: false
+
+# for parent config
+permutation_batch_size: 2048
