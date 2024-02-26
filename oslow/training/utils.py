@@ -7,6 +7,32 @@ import functools
 # https://github.com/sharpenb/Differentiable-DAG-Sampling/tree/44f96769a729efc99bdd16c9b00deee4077a76b2
 
 
+def sinkhorn(log_x: torch.Tensor, iters: int, temp: float):
+    """
+    Performs incomplete Sinkhorn normalization to log_x.
+    By a theorem by Sinkhorn and Knopp [1], a sufficiently well-behaved  matrix
+    with positive entries can be turned into a doubly-stochastic matrix
+    (i.e. its rows and columns add up to one) via the succesive row and column
+    normalization.
+        -To ensure positivity, the effective input to sinkhorn has to be
+        exp(log_alpha) (elementwise).
+        -However, for stability, sinkhorn works in the log-space. It is only at
+        return time that entries are exponentiated.
+
+    [1] https://projecteuclid.org/journals/pacific-journal-of-mathematics/volume-21/issue-2/\
+        Concerning-nonnegative\-matrices-and-doubly-stochastic-matrices
+    """
+    n = log_x.size()[1]
+    log_x = log_x.reshape(-1, n, n) / temp
+    for _ in range(iters):
+        log_x = log_x - (torch.logsumexp(log_x, dim=2,
+                         keepdim=True)).reshape(-1, n, 1)
+        log_x = log_x - (torch.logsumexp(log_x, dim=1,
+                         keepdim=True)).reshape(-1, 1, n)
+    results = torch.exp(log_x)
+    return results
+
+
 def translate_idx_ordering(
     idx: th.Union[th.List[int], th.List[th.List[int]], np.array]
 ):
@@ -46,43 +72,6 @@ def gumbel_log_prob(gumbel_noise: torch.Tensor) -> torch.Tensor:
         The log-probability of the sample
     """
     return (-gumbel_noise - torch.exp(-gumbel_noise)).sum(dim=[-1, -2])
-
-
-def sinkhorn(log_alpha, num_iters=20):
-    """Performs incomplete Sinkhorn normalization to log_alpha.
-    By a theorem by Sinkhorn and Knopp [1], a sufficiently well-behaved  matrix
-    with positive entries can be turned into a doubly-stochastic matrix
-    (i.e. its rows and columns add up to one) via the succesive row and column
-    normalization.
-        -To ensure positivity, the effective input to sinkhorn has to be
-        exp(log_alpha) (elementwise).
-        -However, for stability, sinkhorn works in the log-space. It is only at
-        return time that entries are exponentiated.
-
-    [1] https://projecteuclid.org/journals/pacific-journal-of-mathematics/volume-21/issue-2/\
-        Concerning-nonnegative\-matrices-and-doubly-stochastic-matrices
-
-    Args:
-        log_alpha: 2D tensor (a matrix of shape [N, N])
-            or 3D tensor (a batch of matrices of shape = [batch_size, N, N])
-        num_iters: number of sinkhorn iterations (in practice, as little as 20
-            iterations are needed to achieve decent convergence for N~100)
-    Returns:
-        A 3D tensor of close-to-doubly-stochastic matrices (2D tensors are
-            converted to 3D tensors with batch_size equals to 1)
-    """
-    n = log_alpha.size()[1]
-    log_alpha = log_alpha.reshape(-1, n, n)
-    for _ in range(num_iters):
-        log_alpha = log_alpha - (
-            torch.logsumexp(log_alpha, dim=2, keepdim=True)
-        ).reshape(-1, n, 1)
-        log_alpha = log_alpha - (
-            torch.logsumexp(log_alpha, dim=1, keepdim=True)
-        ).reshape(-1, 1, n)
-
-    results = torch.exp(log_alpha)
-    return results
 
 
 def is_doubly_stochastic(mat, threshold: th.Optional[float] = 1e-4) -> torch.Tensor:

@@ -1,4 +1,6 @@
-in_features: ${data.dataset.graph.num_nodes}  # take the number of nodes from the graph
+# A configuration in which the model matches the dataset in terms of being
+# (1) additive or not and (2) the noise type in the latent space.
+in_features: ${data.dataset.graph.num_nodes} # take the number of nodes from the graph
 layers: [100, 100]
 dropout: null
 num_transforms: 1 # number of transformations to apply (you can change)

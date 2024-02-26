@@ -1,5 +1,0 @@
-method: soft-sort
-temp: .1
-
-# for parent config
-permutation_batch_size: 128

@@ -6,7 +6,7 @@ import yaml
 from omegaconf import OmegaConf
 from pprint import pprint
 import oslow.config as config_ref
-from oslow.config import MainConfig, DataConfig, ModelConfig
+from oslow.config import MainConfig, DataConfig, ModelConfig, EnsembleConfig
 from random_word import RandomWords
 from oslow.data.synthetic.graph_generator import GraphGenerator
 from oslow.data.synthetic.parametric import AffineParametericDataset
@@ -173,10 +173,10 @@ def instantiate_model(conf: ModelConfig):
     )
 
 
-@hydra.main(version_base=None, config_path="config", config_name="causal_discovery")
-def main(conf: MainConfig):
+@hydra.main(version_base=None, config_path="config", config_name="ensemble")
+def main(conf: EnsembleConfig):
     conf = hydra.utils.instantiate(conf)
-    conf = MainConfig(**OmegaConf.to_container(conf))
+    conf = EnsembleConfig(**OmegaConf.to_container(conf))
 
     if conf.test_run:
         pprint(conf.model_dump())
@@ -206,21 +206,23 @@ def main(conf: MainConfig):
             batch_size=conf.flow_batch_size,
             shuffle=True,
         )
-        perm_dloader = torch.utils.data.DataLoader(
+        flow_ensemble_dloader = torch.utils.data.DataLoader(
             dset,
-            batch_size=conf.permutation_batch_size,
+            batch_size=conf.flow_ensemble_batch_size,
             shuffle=True,
         )
         logging.info("Instantiate model ...")
         model = instantiate_model(conf.model)
 
         logging.info("Instantiate trainer...")
-        trainer = conf.trainer(model=model, dag=dset.dag, flow_dataloader=flow_dloader, perm_dataloader=perm_dloader)
-        #instantiate_trainer(
-         #   conf.trainer, model, flow_dloader, perm_dloader, dag=dset.dag
-        #)
+        trainer: EnsembleConfig = conf.trainer(
+            model=model, 
+            dag=dset.dag, 
+            flow_dataloader=flow_dloader, 
+            flow_ensemble_dataloader=flow_ensemble_dloader
+        )
         logging.info("Start training ...")
-        trainer.train()
+        trainer.run()
 
 
 if __name__ == "__main__":

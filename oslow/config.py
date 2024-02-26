@@ -1,3 +1,4 @@
+# TODO: remove this file and change all of the hydra setting to _target_ based configurations
 """
 This file contains the entire configuration of the project.
 Everything lies within the MainConfig class, which is a Pydantic model.
@@ -11,7 +12,10 @@ from functools import partial
 from oslow.data.base_dataset import OCDDataset
 from oslow.data.synthetic.utils import RandomGenerator
 import networkx as nx
-
+from oslow.training.permutation_learning.baseline_methods import PermutationLearningModule
+from oslow.training.trainer import Trainer
+from oslow.models.oslow import OSlow
+from oslow.ensemble import EnsembleTrainer
 
 class BaseModel(PydanticBaseModel):
     class Config:
@@ -91,102 +95,90 @@ class CheckpointingConfig(BaseModel):
     frequency: int
     directory: str
 
-
-class BirkhoffConfig(BaseModel):
-    frequency: int
-    num_samples: int
-    print_legend: bool = False
-
-
-class SchedulerConfig(BaseModel):
-    flow_frequency: int
-    permutation_frequency: int
-    flow_lr_scheduler: Optional[
-        Callable[[torch.optim.Optimizer],
-                 torch.optim.lr_scheduler._LRScheduler]
-    ] = None
-    permutation_lr_scheduler: Optional[
-        Callable[[torch.optim.Optimizer],
-                 torch.optim.lr_scheduler._LRScheduler]
-    ] = None
+# class SchedulerConfig(BaseModel):
+#     flow_frequency: int
+#     permutation_frequency: int
+#     flow_lr_scheduler: Optional[
+#         Callable[[torch.optim.Optimizer],
+#                  torch.optim.lr_scheduler._LRScheduler]
+#     ] = None
+#     permutation_lr_scheduler: Optional[
+#         Callable[[torch.optim.Optimizer],
+#                  torch.optim.lr_scheduler._LRScheduler]
+#     ] = None
 
 
-class SoftSortConfig(BaseModel):
-    method: str = "soft-sort"
-    temp: float
-    set_gamma_uniform: bool = False
-    set_gamma_custom: Optional[List[List[int]]] = None
+# class SoftSortConfig(BaseModel):
+#     method: str = "soft-sort"
+#     temp: float
+#     set_gamma_uniform: bool = False
+#     set_gamma_custom: Optional[List[List[int]]] = None
 
 
-class ContrastiveDivergenceConfig(BaseModel):
-    method: str = "contrastive-divergence"
-    num_samples: int
-    buffer_size: int
-    buffer_update: int
-    set_gamma_uniform: bool = False
-    set_gamma_custom: Optional[List[List[int]]] = None
+# class ContrastiveDivergenceConfig(BaseModel):
+#     method: str = "contrastive-divergence"
+#     num_samples: int
+#     buffer_size: int
+#     buffer_update: int
+#     set_gamma_uniform: bool = False
+#     set_gamma_custom: Optional[List[List[int]]] = None
 
 
-class SoftSinkhornConfig(BaseModel):
-    method: str = "soft-sinkhorn"
-    temp: float
-    iters: int
-    set_gamma_uniform: bool = False
-    set_gamma_custom: Optional[List[List[int]]] = None
+# class SoftSinkhornConfig(BaseModel):
+#     method: str = "soft-sinkhorn"
+#     temp: float
+#     iters: int
+#     set_gamma_uniform: bool = False
+#     set_gamma_custom: Optional[List[List[int]]] = None
 
 
-class GumbelTopKConfig(BaseModel):
-    method: str = "gumbel-top-k"
-    num_samples: int
-    buffer_size: int
-    buffer_update: int
-    set_gamma_uniform: bool = False
-    set_gamma_custom: Optional[List[List[int]]] = None
+# class GumbelTopKConfig(BaseModel):
+#     method: str = "gumbel-top-k"
+#     num_samples: int
+#     buffer_size: int
+#     buffer_update: int
+#     set_gamma_uniform: bool = False
+#     set_gamma_custom: Optional[List[List[int]]] = None
 
 
-class GumbelSinkhornStraightThroughConfig(BaseModel):
-    method: str = "straight-through-sinkhorn"
-    temp: float
-    iters: int
-    set_gamma_uniform: bool = False
-    set_gamma_custom: Optional[List[List[int]]] = None
+# class GumbelSinkhornStraightThroughConfig(BaseModel):
+#     method: str = "straight-through-sinkhorn"
+#     temp: float
+#     iters: int
+#     set_gamma_uniform: bool = False
+#     set_gamma_custom: Optional[List[List[int]]] = None
 
 
-class TrainingConfig(BaseModel):
-    device: str
-    checkpointing: Optional[CheckpointingConfig] = None
+# class TrainingConfig(BaseModel):
+#     bufferred: bool
+#     device: str
+#     checkpointing: Optional[CheckpointingConfig] = None
 
-    temperature: float = 1.0
-    temperature_scheduler: Literal['constant',
-                                   'linear', 'exponential'] = 'constant'
-    # training loop configurations
-    max_epochs: int
-    flow_batch_size: int
-    permutation_batch_size: int
-    flow_optimizer: Callable[[Iterable], torch.optim.Optimizer]
-    permutation_optimizer: Callable[[Iterable], torch.optim.Optimizer]
+#     temperature: float = 1.0
+#     temperature_scheduler: Literal['constant',
+#                                    'linear', 'exponential'] = 'constant'
+#     # training loop configurations
+#     max_epochs: int
+#     flow_batch_size: int
+#     permutation_batch_size: int
+#     flow_optimizer: Callable[[Iterable], torch.optim.Optimizer]
+#     permutation_optimizer: Callable[[Iterable], torch.optim.Optimizer]
 
-    scheduler: SchedulerConfig
-    permutation: Union[
-        SoftSortConfig,
-        ContrastiveDivergenceConfig,
-        SoftSinkhornConfig,
-        GumbelSinkhornStraightThroughConfig,
-        GumbelTopKConfig,
-    ]
+#     scheduler: SchedulerConfig
+#     permutation: Callable[[int], PermutationLearningModule]
 
-    brikhoff: Optional[BirkhoffConfig] = None
+#     brikhoff: Optional[BirkhoffConfig] = None
 
-    perform_final_buffer_search: bool = False,
+#     perform_final_buffer_search: bool = False,
 
-    @field_validator("device")
-    def validate_device(cls, value):
-        values = value.split(":")
-        assert values[0] in [
-            "cpu", "cuda"], "device must be either cpu or cuda"
-        if len(values) > 1 and values[1] != "":
-            assert int(values[1]) >= 0, "device number must be positive"
-        return value
+#     @field_validator("device")
+#     def validate_device(cls, value):
+#         values = value.split(":")
+#         assert values[0] in [
+#             "cpu", "cuda"], "device must be either cpu or cuda"
+#         if len(values) > 1 and values[1] != "":
+#             assert int(values[1]) >= 0, "device number must be positive"
+#         return value
 
 
 class ModelConfig(BaseModel):
@@ -216,13 +208,86 @@ class ModelConfig(BaseModel):
 
 
 class MainConfig(BaseModel):
-    trainer: TrainingConfig
+    trainer: Callable[[OSlow, nx.DiGraph, torch.utils.data.DataLoader, torch.utils.data.DataLoader], Trainer]
     data: Union[DataConfig, OCDDataset]
     model: ModelConfig
     wandb: WandBConfig
     out_dir: str
     test_run: bool
+    flow_batch_size: int
+    permutation_batch_size: int
 
+    def export_config(self):
+        ret = {}
+        # iterate over all the attributes and if they have an export_config method, call it
+        # otherwise, if they are an instance of BaseModel, call the model_dump method
+        # otherwise, do nothing
+        for k, v in self.__dict__.items():
+            if hasattr(v, "export_config"):
+                ret[k] = v.export_config()
+            elif isinstance(v, BaseModel):
+                ret[k] = v.model_dump()
+        return ret
+    
+    @model_validator(mode="after")
+    def validate_model(self):
+        name_features = {"adni": 8, "sachs": 11, "syntren": 20}
+        data = self.data
+        if isinstance(data.dataset, ParametricSyntheticConfig) or isinstance(
+            data.dataset, NonParametricSyntheticConfig
+        ):
+            if self.model.in_features is None:
+                self.model.in_features = data.dataset.graph.num_nodes
+            assert (
+                self.model.in_features == data.dataset.graph.num_nodes
+            ), "in_features must be equal to the number of nodes in the graph"
+
+        elif isinstance(data.dataset, RealworldConfig) or isinstance(
+            data.dataset, SemiSyntheticConfig
+        ):
+            if self.model.in_features is None:
+                self.model.in_features = name_features[data.dataset.name]
+            assert (
+                self.model.in_features == name_features[data.dataset.name]
+            ), "in_features must be equal to the number of nodes in the graph"
+        elif isinstance(data.dataset, OCDDataset):
+            if self.model.in_features is None:
+                self.model.in_features = len(data.dataset.dag.nodes)
+            assert self.model.in_features == len(
+                data.dataset.dag.nodes
+            ), "in_features must be equal to the number of nodes in the graph"
+
+        if self.model.ordering is not None:
+            assert set(self.model.ordering) == set(
+                range(self.model.in_features)
+            ), "ordering must be a permutation of range(in_features)"
+
+        return self
+
+
+class EnsembleConfig(BaseModel):
+    trainer: Callable[[OSlow, nx.DiGraph, torch.utils.data.DataLoader, torch.utils.data.DataLoader], EnsembleTrainer]
+    data: Union[DataConfig, OCDDataset]
+    model: ModelConfig
+    wandb: WandBConfig
+    out_dir: str
+    test_run: bool
+    
+    flow_batch_size: int
+    flow_ensemble_batch_size: int
+
+    def export_config(self):
+        ret = {}
+        # iterate over all the attributes and if they have an export_config method, call it
+        # otherwise, if they are an instance of BaseModel, call the model_dump method
+        # otherwise, do nothing
+        for k, v in self.__dict__.items():
+            if hasattr(v, "export_config"):
+                ret[k] = v.export_config()
+            elif isinstance(v, BaseModel):
+                ret[k] = v.model_dump()
+        return ret
+    
     @model_validator(mode="after")
     def validate_model(self):
         name_features = {"adni": 8, "sachs": 11, "syntren": 20}

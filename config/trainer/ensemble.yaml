@@ -1,0 +1,21 @@
+defaults:
+  - perm_list: default
+  - _self_
+
+logging_scatterplot_frequency: 1
+train_fixed: false
+
+_target_: oslow.ensemble.EnsembleTrainer
+_partial_: true
+device: cuda
+
+max_epochs: 500
+
+flow_optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.00005
+  _partial_: true
+
+flow_lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true

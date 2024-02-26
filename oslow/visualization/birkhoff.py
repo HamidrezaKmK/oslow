@@ -5,7 +5,8 @@ import torch
 from oslow.models.oslow import OSlow
 from functools import lru_cache
 from sklearn.decomposition import PCA
-from oslow.training.permutation import PermutationLearningModule, PermutationMatrixLearningModuleWithBuffer
+from oslow.training.permutation_learning.baseline_methods import PermutationLearningModule
+from oslow.training.permutation_learning.buffered_methods import BufferedPermutationLearning
 import networkx as nx
 from oslow.evaluation import backward_relative_penalty
 
@@ -60,7 +61,7 @@ def visualize_birkhoff_polytope(
         a numpy array that can be converted to an image representing the visualization of the Birkhoff polytope
     """
     permutation_model.to(device)
-    sampled_permutations = permutation_model.sample_hard_permutations(
+    sampled_permutations = permutation_model.sample_permutations(
         num_samples, gumbel_std=temperature)
 
     # (1) Handle the backbone and the PCA transform of the Birkhoff polytope
@@ -104,7 +105,7 @@ def visualize_birkhoff_polytope(
             txt = "NA"
             lbl = get_label_from_permutation_matrix(permutation)
 
-            if isinstance(permutation_model, PermutationMatrixLearningModuleWithBuffer):
+            if isinstance(permutation_model, BufferedPermutationLearning):
                 idx = permutation_model._get_in_buffer_index(
                     permutation.unsqueeze(0))[0].item()
                 if idx != -1:

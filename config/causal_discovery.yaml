@@ -1,6 +1,6 @@
 defaults:
   - data: default
-  - model: default
+  - model: misspecified
   - trainer: default
   - hydra: default
   - override hydra/hydra_logging: disabled
@@ -8,9 +8,12 @@ defaults:
   - _self_
 
 wandb:
-  run_name: default
-  project: default
+  run_name: order_discovery
+  project: order_discovery
   entity: ordered-causal-discovery
 
-test_run: true
+flow_batch_size: 128
+permutation_batch_size: 128
+
+test_run: false
 out_dir: runs/

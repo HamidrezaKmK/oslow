@@ -1,0 +1,19 @@
+defaults:
+  - data: default
+  - model: misspecified
+  - trainer: ensemble
+  - hydra: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - _self_
+
+wandb:
+  run_name: ensemble
+  project: ensemble
+  entity: ordered-causal-discovery
+
+flow_batch_size: 128
+flow_ensemble_batch_size: 8
+
+test_run: false
+out_dir: runs/

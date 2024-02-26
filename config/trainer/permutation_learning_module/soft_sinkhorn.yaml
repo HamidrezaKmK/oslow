@@ -1,0 +1,9 @@
+_target_: oslow.training.permutation_learning.baseline_methods.SoftSinkhorn
+_partial_: true
+initialization_function:
+  _target_: oslow.training.permutation_learning.initialization.uniform_gamma_init_func
+  mode: permutation-matrix
+  _partial_: true
+temp: 0.1 # the temperature for the sinkhorn operator
+iters: 20 # the number of sinkhorn operator iterations
+
