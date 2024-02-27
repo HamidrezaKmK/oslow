@@ -48,12 +48,7 @@ def reordering(adj_mat, data):
 
 
 class SyntrenOCDDataset(OCDDataset):
-    def __init__(
-        self,
-        data_id: int,
-        standardization: bool = False,
-        reject_outliers_n_far_from_mean: th.Optional[float] = None,
-    ):
+    def __init__(self, data_id: int, standard: bool = False):
         """Args:
         data_id: The id of the dataset to load (from 0 to 9)
         """
@@ -69,9 +64,5 @@ class SyntrenOCDDataset(OCDDataset):
         df = pd.DataFrame(data)
 
         super().__init__(
-            samples=df,
-            dag=graph,
-            name=f"Syntren-{data_id}",
-            standardization=standardization,
-            reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean,
+            samples=df, dag=graph, name=f"Syntren-{data_id}", standard=standard
         )

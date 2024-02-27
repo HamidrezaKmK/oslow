@@ -9,12 +9,7 @@ _DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class SachsOCDDataset(OCDDataset):
-    def __init__(
-        self,
-        standardization: bool = False,
-        reject_outliers_n_far_from_mean: th.Optional[float] = None,
-        name: th.Optional[str] = None,
-    ):
+    def __init__(self, standard: bool = False):
         # load csv file into pandas dataframe
         df = pd.read_csv(os.path.join(_DATA_DIR, "sachs/sachs.csv"))
         label_mapping = {
@@ -46,11 +41,4 @@ class SachsOCDDataset(OCDDataset):
 
         explanation = "\n".join([f"{k} -> {v}" for k, v in label_mapping.items()])
 
-        super().__init__(
-            samples=df,
-            dag=graph,
-            name=name if name is not None else "sachs",
-            explanation=explanation,
-            standardization=standardization,
-            reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean,
-        )
+        super().__init__(samples=df, dag=graph, name="sachs", standard=standard)

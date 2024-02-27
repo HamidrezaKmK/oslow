@@ -10,7 +10,7 @@ import math
 from .utils import RandomGenerator
 from oslow.data.base_dataset import OCDDataset
 import pandas as pd
-import sklearn
+from oslow.data.synthetic.graph_generator import GraphGenerator
 from sklearn.metrics.pairwise import rbf_kernel
 from .utils import perform_post_non_linear_transform, softplus, standardize
 
@@ -28,7 +28,7 @@ class AffineNonParametericDataset(OCDDataset):
     def __init__(
         self,
         num_samples: int,
-        graph: nx.DiGraph,
+        graph_generator: GraphGenerator,
         noise_generator: RandomGenerator,
         *args,
         s_rbf_kernel_gamma: float = 1.0,
@@ -44,14 +44,14 @@ class AffineNonParametericDataset(OCDDataset):
         """
         Args:
             num_samples: number of samples to generate
-            graph: a networkx.DiGraph
+            graph_generator: An object of type GraphGenerator that generates the DAG
             noise_generator: An object of type RandomGenerator that generates the parameters for the noise function
             link_generator: An object of type RandomGenerator that generates the parameters for the s and t functions
             link: a string representing the link function to use
             perform_normalization: whether to normalize the data after generating the column, this is done for numerical stability
             additive: whether to use an additive noise model or not, for an additive model the noise does not get modulated
         """
-
+        graph: nx.DiGraph = graph_generator.generate_dag()
         topological_order = list(nx.topological_sort(graph))
         # create an empty pandas dataframe with columns equal to the graph.nodes and rows equal to num_samples and initialize it with zeros
         dset = pd.DataFrame(

@@ -1,0 +1,2 @@
+_target_: oslow.data.real_world.sachs.SachsDataset
+standard: true # very important to set this to true for model ensemble to work better

@@ -92,14 +92,14 @@ def backward_relative_penalty(perm: th.List[int], dag: th.Union[np.array, nx.DiG
         return dag[u, v] if isinstance(dag, np.ndarray) else dag.has_edge(u, v)
 
     n = len(perm)
-    backwards, all = 0, 0
+    backwards, all_edges = 0, 0
     for i in range(n):
         for j in range(n):
             if edge_exists(perm[j], perm[i]):
-                all += 1
+                all_edges += 1
                 if i < j:
                     backwards += 1
-    return 1.0 * backwards / all
+    return 1.0 * backwards / all_edges
 
 
 def shd(dag1: nx.DiGraph, dag2: nx.DiGraph, with_change_orientation=False):

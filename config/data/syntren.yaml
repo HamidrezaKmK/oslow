@@ -1,0 +1,3 @@
+_target_: oslow.data.real_world.syntren.SyntrenOCDDataset
+data_id: 0
+standard: true # very important to set this to true for model ensemble to work better

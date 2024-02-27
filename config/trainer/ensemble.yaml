@@ -1,13 +1,10 @@
-defaults:
-  - perm_list: default
-  - _self_
-
 logging_scatterplot_frequency: 1
 train_fixed: false
 
 _target_: oslow.ensemble.EnsembleTrainer
 _partial_: true
 device: cuda
+perm_list: ${get_permutations:3}
 
 max_epochs: 500
 
