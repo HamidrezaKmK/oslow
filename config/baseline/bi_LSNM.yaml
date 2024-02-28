@@ -1,0 +1,7 @@
+_target_: baselines.source.methods.lsnm.lsnm.LSNM
+standard: false
+independence_test: true
+neural_network: true
+n_steps: 1000
+independence_eps: 0.01
+verbose: false

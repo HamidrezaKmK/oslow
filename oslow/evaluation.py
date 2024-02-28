@@ -3,7 +3,7 @@ import numpy as np
 import random
 import networkx as nx
 
-# from cdt.metrics import SID, SHD
+from cdt.metrics import SID
 
 
 def dfs(node, adj, stack, visited):
@@ -102,26 +102,30 @@ def backward_relative_penalty(perm: th.List[int], dag: th.Union[np.array, nx.DiG
     return 1.0 * backwards / all_edges
 
 
-def shd(dag1: nx.DiGraph, dag2: nx.DiGraph, with_change_orientation=False):
+def shd(true_dag: nx.DiGraph, estimated_dag: nx.DiGraph, with_change_orientation=False):
     """
     Compute the structural hamming distance (SHD) between two DAGs
     """
     ret = 0
-    for u, v in dag1.edges():
-        if not dag2.has_edge(u, v):
+    for u, v in true_dag.edges():
+        if not estimated_dag.has_edge(u, v):
             ret += 1
-    for u, v in dag2.edges():
-        if not dag1.has_edge(u, v):
+    for u, v in estimated_dag.edges():
+        if not true_dag.has_edge(u, v):
             ret += 1
     if with_change_orientation:
-        for u, v in dag1.edges():
+        for u, v in true_dag.edges():
             if (
-                dag2.has_edge(u, v)
-                and not dag2.has_edge(v, u)
-                and not dag1.has_edge(v, u)
+                estimated_dag.has_edge(u, v)
+                and not estimated_dag.has_edge(v, u)
+                and not true_dag.has_edge(v, u)
             ):
                 ret -= 1
     return ret
+
+
+def sid(true_dag: nx.DiGraph, estimated_dag: nx.DiGraph):
+    return SID(true_dag, estimated_dag)
 
 
 def closure_distance(perm: th.List[int], dag: np.array):
@@ -143,13 +147,3 @@ def closure(dag: np.array):
             for j in range(len(dag)):
                 dag[i, j] = dag[i, j] or (dag[i, k] and dag[k, j])
     return dag
-
-
-# def count_SID(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
-#     return SID(true_dag, estimated_graph)
-
-
-# def count_SHD(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
-#     """Two mistakes are counted for anti-causal edges"""
-#     # TODO fix this double for anticausal
-#     return SHD(true_dag, estimated_graph, double_for_anticausal=False)

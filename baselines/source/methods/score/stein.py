@@ -57,10 +57,16 @@ def Stein_pruning(X, top_order, eta, threshold=0.1):
     for i in range(d - 1):
         l = top_order[-(i + 1)]
         s = heuristic_kernel_width(X[:, remaining_nodes].detach())
-        p = Stein_hess_parents(X[:, remaining_nodes].detach(), s, eta, remaining_nodes.index(l))
+        p = Stein_hess_parents(
+            X[:, remaining_nodes].detach(), s, eta, remaining_nodes.index(l)
+        )
         p_mean = p.mean(axis=0).abs()
         s_l = 1 / p_mean[remaining_nodes.index(l)]
-        parents = [remaining_nodes[i] for i in torch.where(p_mean > threshold / s_l)[0] if top_order[i] != l]
+        parents = [
+            remaining_nodes[i]
+            for i in torch.where(p_mean > threshold / s_l)[0]
+            if top_order[i] != l
+        ]
         # parents = torch.where(p.mean(axis=0) > 0.1)[0]
         A[parents, l] = 1
         A[l, l] = 0
@@ -100,12 +106,22 @@ def fullAdj2Order(A):
 
 
 def SCORE(
-    X, eta_G=0.001, eta_H=0.001, cutoff=0.001, normalize_var=False, dispersion="var", pruning="CAM", threshold=0.1
+    X,
+    eta_G=0.001,
+    eta_H=0.001,
+    cutoff=0.001,
+    normalize_var=False,
+    dispersion="var",
+    pruning="CAM",
+    threshold=0.1,
 ):
     top_order = compute_top_order(X, eta_G, eta_H, normalize_var, dispersion)
 
     if pruning == "CAM":
-        return cam_pruning(full_DAG(top_order), X.detach().cpu().numpy(), cutoff), top_order
+        return (
+            cam_pruning(full_DAG(top_order), X.detach().cpu().numpy(), cutoff),
+            top_order,
+        )
     elif pruning == "Stein":
         return Stein_pruning(X, top_order, eta_G, threshold=threshold), top_order
     else:

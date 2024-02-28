@@ -1,0 +1,17 @@
+defaults:
+  - data: default
+  - hydra: default
+  - baseline: CAM
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - _self_
+
+wandb:
+  run_name: baseline
+  project: baseline
+  entity: ordered-causal-discovery
+
+DAG: true # whether to learn the DAG instead of the order
+
+test_run: false
+out_dir: runs/

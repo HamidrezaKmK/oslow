@@ -28,30 +28,26 @@
 from daguerreo.models import Daguerro  # type: ignore
 from daguerreo import utils  # type: ignore
 from daguerreo.args import parse_pipeline_args  # type: ignore
-from daguerreo.evaluation import count_accuracy  # type: ignore
 import networkx as nx
-import typing as th
 import torch
 import wandb
 
 from source.base import AbstractBaseline
 
 
-class Permutohedron(AbstractBaseline):
+class DAGuerreo(AbstractBaseline):
     """DAG Learning on the Permutohedron baseline. https://arxiv.org/pdf/2301.11898.pdf"""
 
     def __init__(
         self,
-        dataset: th.Union["OCDDataset", str],  # type: ignore
-        dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
-        # hyperparameters
+        num_epochs: int = 5000,
         linear: bool = False,
         seed: int = 42,
         sp_map: bool = False,
         joint: bool = False,
-        standardize: bool = False,
+        standard: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Permutohedron", standardize=standardize)
+        super().__init__(name="DAGuerreo", standard=standard)
         self.linear = linear
 
         # parse args
@@ -61,9 +57,8 @@ class Permutohedron(AbstractBaseline):
         self.seed = seed
         self.args.equations = "linear" if self.linear else "nonlinear"
         self.args.wandb = False
-        self.args.num_epochs = 5000  # default max epochs is 5000
+        self.args.num_epochs = num_epochs
         self.args.joint = joint
-        self.samples = self.get_data(conversion="tensor").double()
         self.args.structure = "sp_map" if sp_map else "tk_sp_max"
 
     @staticmethod
@@ -87,11 +82,13 @@ class Permutohedron(AbstractBaseline):
         return g, orders
 
     def estimate_order(self):
+        samples = self.get_samples(conversion="tensor").double()
         self.args.sparsifier = "none"
-        _, orders = self._estimate_order_dat(self.samples, self.args, self.seed)
+        _, orders = self._estimate_order_dat(samples, self.args, self.seed)
         return orders
 
     def estimate_dag(self):
+        samples = self.get_samples(conversion="tensor").double()
         self.args.sparsifier = "l0_ber_ste"
-        graph, _ = self._estimate_order_dat(self.samples, self.args, self.seed)
+        graph, _ = self._estimate_order_dat(samples, self.args, self.seed)
         return graph

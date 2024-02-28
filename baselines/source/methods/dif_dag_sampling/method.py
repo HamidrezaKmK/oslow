@@ -7,11 +7,19 @@ import typing as th
 from source.base import AbstractBaseline
 
 from .probabilistic_dag import ProbabilisticDAG as FixedProbabilisticDAG
-import src.probabilistic_dag_model.probabilistic_dag
+import src.probabilistic_dag_model.probabilistic_dag  # ignore type
 
-setattr(src.probabilistic_dag_model.probabilistic_dag, "ProbabilisticDAG", FixedProbabilisticDAG)
-from src.probabilistic_dag_model.probabilistic_dag_autoencoder import ProbabilisticDAGAutoencoder
-from src.probabilistic_dag_model.train_probabilistic_dag_autoencoder import train_autoencoder
+setattr(
+    src.probabilistic_dag_model.probabilistic_dag,
+    "ProbabilisticDAG",
+    FixedProbabilisticDAG,
+)
+from src.probabilistic_dag_model.probabilistic_dag_autoencoder import (
+    ProbabilisticDAGAutoencoder,
+)
+from src.probabilistic_dag_model.train_probabilistic_dag_autoencoder import (
+    train_autoencoder,
+)
 from lightning_toolbox.data import DataModule
 import torch
 
@@ -62,11 +70,14 @@ class DifferentiableDagSampling(AbstractBaseline):
         **datamodule_args,
     ):
         super().__init__(
-            dataset=dataset, dataset_args=dataset_args, name="DifferentiableDagSampling", standardize=standardize
+            dataset=dataset,
+            dataset_args=dataset_args,
+            name="DifferentiableDagSampling",
+            standard=standardize,
         )
 
         # parse args
-        self.samples = self.get_data(conversion="tensor").float()
+        self.samples = self.get_samples(conversion="tensor").float()
         self.model_args = {
             "input_dim": self.samples.shape[1],
             "output_dim": 1,
@@ -85,14 +96,20 @@ class DifferentiableDagSampling(AbstractBaseline):
             "prior_p": prior_p,
             "seed": seed,
         }
-        self.num_sample_dags = num_sample_dags  # number of dags to sample to use as the prediction dag
+        self.num_sample_dags = (
+            num_sample_dags  # number of dags to sample to use as the prediction dag
+        )
 
         self.max_epochs = max_epochs
         self.patience = patience
         self.frequency = frequency
         self.model_path = model_path
         self.model = None
-        self.datamodule_args = {**datamodule_args, "val_size": val_size, "batch_size": batch_size}
+        self.datamodule_args = {
+            **datamodule_args,
+            "val_size": val_size,
+            "batch_size": batch_size,
+        }
 
     def train_and_predict(self):
         if self.model is not None:
@@ -123,7 +140,13 @@ class DifferentiableDagSampling(AbstractBaseline):
             return nx.DiGraph(prob_mask.detach().cpu().numpy())
 
         # sample dags
-        dags = torch.stack([self.model.probabilistic_dag.sample() for i in range(self.num_sample_dags)], dim=0)
+        dags = torch.stack(
+            [
+                self.model.probabilistic_dag.sample()
+                for i in range(self.num_sample_dags)
+            ],
+            dim=0,
+        )
         # count how many times each dag is sampled
         uniques, counts = torch.unique(dags, return_counts=True, dim=0)
         # pick the most sampled dag

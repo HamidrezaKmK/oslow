@@ -34,6 +34,7 @@ class OCDDataset(torch.utils.data.Dataset):
         # sort columns of samples alphabetically
         self.samples = samples.reindex(sorted(samples.columns), axis=1)
 
+        self.standard = standard
         if standard:
             for col in self.samples.columns:
                 avg = self.samples[col].mean()
@@ -42,6 +43,15 @@ class OCDDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.samples)
+
+    def log_dict(self):
+        attrs = {
+            "name": self.name,
+            "dag": self.dag,
+            "size": len(self.samples),
+            "standard": self.standard,
+        }
+        return attrs
 
     def __getitem__(self, idx):
         # return the idx-th sample, as a jnp.array

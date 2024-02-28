@@ -4,8 +4,6 @@
 # Copy right belongs to the original author https://github.com/paulrolland1307
 
 from source.base import AbstractBaseline  # also adds ocd to sys.path
-from source.utils import full_DAG
-import typing as th
 import numpy as np
 import networkx as nx
 from source.methods.lsnm.loci import loci
@@ -14,26 +12,23 @@ from source.methods.lsnm.loci import loci
 class LSNM(AbstractBaseline):
     def __init__(
         self,
-        dataset: th.Union["OCDDataset", str],  # type: ignore
-        dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
-        # hyperparameters
-        standardize: bool = False,
-        verbose: bool = True,
+        standard: bool = False,
         independence_test: bool = True,
         neural_network: bool = True,
         n_steps: int = 1000,
         independence_eps: float = 0.01,
+        verbose: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name="LSNM", standardize=standardize)
+        super().__init__(name="bi-LSNM", standard=standard)
         self.verbose = verbose
         self.independence_test = independence_test
         self.neural_network = neural_network
         self.n_steps = n_steps
         self.independence_eps = independence_eps
-        self.data = self.get_data(conversion="numpy")
+        self.dag = None
 
     def estimate_order(self):
-        data = self.data
+        data = self.get_samples(conversion="numpy")
         dag = np.zeros((data.shape[1], data.shape[1]))
         for i in range(data.shape[1]):
             print(f"Estimating order for variable {i}")
@@ -57,4 +52,6 @@ class LSNM(AbstractBaseline):
         return order
 
     def estimate_dag(self):
+        if self.dag is None:
+            self.estimate_order()
         return nx.DiGraph(self.dag)
