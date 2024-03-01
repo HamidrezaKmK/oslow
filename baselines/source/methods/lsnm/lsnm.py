@@ -12,14 +12,13 @@ from source.methods.lsnm.loci import loci
 class LSNM(AbstractBaseline):
     def __init__(
         self,
-        standard: bool = False,
         independence_test: bool = True,
         neural_network: bool = True,
         n_steps: int = 1000,
         independence_eps: float = 0.01,
         verbose: bool = False,
     ):
-        super().__init__(name="bi-LSNM", standard=standard)
+        super().__init__(name="bi-LSNM")
         self.verbose = verbose
         self.independence_test = independence_test
         self.neural_network = neural_network

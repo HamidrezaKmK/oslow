@@ -31,9 +31,8 @@ class VI_DP_DAG(AbstractBaseline):
         seed: int = 42,
         method="topk",  # topk or sinkhorn
         max_epochs=100,
-        standard: bool = True,
     ):
-        super().__init__(name="VI-DP-DAG", standard=standard)
+        super().__init__(name="VI-DP-DAG")
 
         # parse args
         self.model_args = {

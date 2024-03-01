@@ -22,10 +22,8 @@ class AbstractBaseline(abc.ABC):
     def __init__(
         self,
         name: th.Optional[str] = None,
-        standard: bool = False,
     ):
         self.name = self.__class__.__name__ if name is None else name
-        self.standard = standard
         self.dataset = None
 
     def set_dataset(self, dataset: OCDDataset):
@@ -48,8 +46,6 @@ class AbstractBaseline(abc.ABC):
             raise ValueError("Dataset is not loaded to get the samples.")
 
         samples = torch.from_numpy(self.dataset.samples.to_numpy())
-        if self.standard:
-            samples = (samples - samples.mean(dim=0)) / samples.std(dim=0)
         if conversion == "tensor":
             return samples
         elif conversion == "numpy":

@@ -9,16 +9,16 @@ from source.methods.score.stein import SCORE
 
 
 class Score(AbstractBaseline):
-    def __init__(self, standard: bool = False):
-        super().__init__(name="SCORE", standard=standard)
+    def __init__(self):
+        super().__init__(name="SCORE")
         self.dag = None
         self.order = None
 
     def estimate_order(self):
-        if self.order is None:
-            data = self.get_samples(conversion="tensor")
-            self.dag, self.order = SCORE(data, 0.001, 0.001, 0.001)
-            self.dag = nx.DiGraph(self.dag)
+        data = self.get_samples(conversion="tensor")
+        self.dag, self.order = SCORE(data, 0.001, 0.001, 0.001)
+        self.dag = nx.DiGraph(self.dag)
+        return self.order
 
     def estimate_dag(self):
         if self.dag is None:

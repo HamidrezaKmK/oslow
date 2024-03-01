@@ -10,20 +10,14 @@ CPU_COUNT = multiprocessing.cpu_count()
 class CAM(AbstractBaseline):
     """CAM baseline from CDT"""
 
-    def __init__(
-        self,
-        standard: bool = False,
-        linear: bool = False,
-        verbose: bool = False,
-    ):
-        super().__init__(name="CAM", standard=standard)
-        self.linear = linear
+    def __init__(self, verbose: bool = False):
+        super().__init__(name="CAM")
         self.verbose = verbose
 
     def estimate_order(self):
         samples = self.get_samples(conversion="pandas")
         graph = CDT_CAM(
-            score="linear" if self.linear else "nonlinear",
+            score="nonlinear",  # Linear throws an error
             pruning=False,
             njobs=CPU_COUNT - 1,
             verbose=self.verbose,
@@ -34,7 +28,7 @@ class CAM(AbstractBaseline):
     def estimate_dag(self):
         samples = self.get_samples(conversion="pandas")
         graph = CDT_CAM(
-            score="linear" if self.linear else "nonlinear",
+            score="nonlinear",  # Linear throws an error
             pruning=True,
             njobs=CPU_COUNT - 1,
             verbose=self.verbose,

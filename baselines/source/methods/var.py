@@ -7,13 +7,9 @@ from oslow.post_processing.cam_pruning import cam_pruning
 
 
 class Var(AbstractBaseline):
-    def __init__(
-        self,
-        standard: bool = False,
-        verbose: bool = False,
-    ):
+    def __init__(self, verbose: bool = False):
         # set hyperparameters
-        super().__init__(name="VarSort", standard=standard)
+        super().__init__(name="VarSort")
         self.verbose = verbose
 
     def estimate_order(self):
@@ -27,9 +23,10 @@ class Var(AbstractBaseline):
 
     def estimate_dag(self):
         dag = full_DAG(self.order if hasattr(self, "order") else self.estimate_order())
+        data = self.get_samples(conversion="numpy")
         dag = cam_pruning(
             dag,
-            np.array(self.data.detach().cpu().numpy()),
+            data,
             cutoff=0.001,
             verbose=self.verbose,
         )

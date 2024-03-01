@@ -45,9 +45,8 @@ class DAGuerreo(AbstractBaseline):
         seed: int = 42,
         sp_map: bool = False,
         joint: bool = False,
-        standard: bool = False,
     ):
-        super().__init__(name="DAGuerreo", standard=standard)
+        super().__init__(name="DAGuerreo")
         self.linear = linear
 
         # parse args
