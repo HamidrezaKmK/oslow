@@ -6,11 +6,7 @@ install.package("devtools");
 library(devtools);
 install_github("https://github.com/cran/CAM");
 ```
-Moreover, the baselines require the [`cdt`](https://github.com/FenTechSolutions/CausalDiscoveryToolbox) package, which can be installed using the following command (assuming the conda environment is activated):
-```bash
-python -m pip install cdt
-```
-You may need to install the R requirements for the `cdt` package (See [here](https://github.com/FenTechSolutions/CausalDiscoveryToolbox/blob/master/r_requirements.txt)).
+You may also need to install the R requirements for the `cdt` package (See [here](https://github.com/FenTechSolutions/CausalDiscoveryToolbox/blob/master/r_requirements.txt)).
 
 ### DAGuerreo
 For `DAGuerreo` ([DAG Learning on the Permutahedron](https://arxiv.org/abs/2301.11898)), you need to run:
@@ -31,5 +27,5 @@ For `VI-DP-DAG` ([Differentiable Dag Sampling](https://arxiv.org/abs/2203.08509)
 ```bash
 git clone git@github.com:sharpenb/Differentiable-DAG-Sampling.git
 cd Differentiable-DAG-Sampling
-
+python setup.py install
 ```

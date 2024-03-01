@@ -6,12 +6,9 @@ import sys
 from omegaconf import OmegaConf
 from pprint import pprint
 from random_word import RandomWords
-import pandas as pd
 
 sys.path.append("..")
-_DIR = os.path.dirname(os.path.abspath(__file__))
-_BASELINES_OUTPUT_DIR = os.path.join(_DIR, "results")
-
+sys.path.append("../oslow")
 from oslow.data import OCDDataset
 from baselines.source.base import AbstractBaseline
 
@@ -44,18 +41,6 @@ OmegaConf.register_new_resolver("get_torch_distribution", get_torch_distribution
 OmegaConf.register_new_resolver(
     "get_torch_distribution_args", get_torch_distribution_args
 )
-
-
-def save_results(conf, results_dict):
-    result_path = os.path.join(_BASELINES_OUTPUT_DIR, "order_results.csv")
-    dag_result_path = os.path.join(_BASELINES_OUTPUT_DIR, "dag_results.csv")
-    file_path = dag_result_path if conf.DAG else result_path
-    if not os.path.exists(file_path):
-        pd.DataFrame([results_dict]).to_csv(file_path, index=False)
-    else:
-        df = pd.read_csv(file_path)
-        df.loc[len(df.index)] = results_dict
-        df.to_csv(file_path, index=False)
 
 
 def init_run_dir(conf):
@@ -97,7 +82,6 @@ def init_run_dir(conf):
 
 @hydra.main(version_base=None, config_path="../config", config_name="baseline_conf")
 def main(conf):
-    log = OmegaConf.to_container(conf, resolve=True)["baseline"]
     conf = hydra.utils.instantiate(conf)
 
     if conf.test_run:
@@ -117,13 +101,10 @@ def main(conf):
         )
         dset = conf.data
         assert isinstance(dset, OCDDataset), "Dataset must be an instance of OCDDataset"
-        log = {**dset.log_dict(), **log}
         baseline: AbstractBaseline = conf.baseline
         baseline.set_dataset(dset)
         results = baseline.evaluate(conf.DAG)
-        final_results = {**results, **log}
-        save_results(conf, final_results)
-        wandb.log(final_results)
+        wandb.log(results)
 
 
 if __name__ == "__main__":

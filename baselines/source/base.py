@@ -6,7 +6,7 @@ import os
 import sys
 import pandas as pd
 
-_DIR = os.path.dirs(os.path.abspath(__file__))
+_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(_DIR, "../../"))
 from oslow.evaluation import backward_relative_penalty, count_backward, shd, sid
 from oslow.data import OCDDataset
