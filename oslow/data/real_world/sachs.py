@@ -39,6 +39,4 @@ class SachsOCDDataset(OCDDataset):
         }
         graph = nx.DiGraph(graph)
 
-        explanation = "\n".join([f"{k} -> {v}" for k, v in label_mapping.items()])
-
         super().__init__(samples=df, dag=graph, name="sachs", standard=standard)

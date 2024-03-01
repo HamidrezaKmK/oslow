@@ -29,6 +29,15 @@ conda env create -f env.yml
 conda activate oslow
 ```
 
+### R Requirements
+Some of the baselines, as well as calculating the `SID` metric, require specific R packages to be installed. After [making sure that R is installed on your system](https://cran.r-project.org/), you can install the required packages by following the documentation of the `cdt` package [here](https://github.com/FenTechSolutions/CausalDiscoveryToolbox/). In particular, you can run the following commands:
+```R
+install.packages("BiocManager");
+BiocManager::install(c("igraph", "SID", "bnlearn", "pcalg", "kpcalg", "glmnet", "mboost"));
+install.packages(c("devtools"));
+library(devtools); 
+install_github("cran/CAM");
+```
 ### Causal Discovery
 
 ```bash

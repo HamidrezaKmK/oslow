@@ -1,4 +1,2 @@
 _target_: baselines.source.methods.cam.CAM
-standard: true
-linear: true
 verbose: false

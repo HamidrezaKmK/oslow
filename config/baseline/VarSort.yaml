@@ -1,3 +1,2 @@
 _target_: baselines.source.methods.var.Var
-standard: false
 verbose: false
