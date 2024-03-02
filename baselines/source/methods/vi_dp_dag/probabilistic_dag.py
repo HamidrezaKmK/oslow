@@ -6,6 +6,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import gumbel_softmax
+
+import os, sys
+_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(_DIR)
 from src.probabilistic_dag_model.soft_sort import SoftSort_p1, gumbel_sinkhorn
 
 # ------------------------------------------------------------------------------
@@ -92,7 +96,12 @@ class ProbabilisticDAG(nn.Module):
     def sample_permutation(self):
         if self.order_type == "sinkhorn":
             log_alpha = F.logsigmoid(self.perm_weights)
-            P, _ = gumbel_sinkhorn(log_alpha, noise_factor=self.noise_factor, temp=self.temperature, hard=self.hard)
+            P, _ = gumbel_sinkhorn(
+                log_alpha,
+                noise_factor=self.noise_factor,
+                temp=self.temperature,
+                hard=self.hard,
+            )
             P = P.squeeze().to(device)
         elif self.order_type == "topk":
             logits = F.log_softmax(self.perm_weights, dim=0).view(1, -1)
@@ -108,7 +117,9 @@ class ProbabilisticDAG(nn.Module):
         P = self.sample_permutation()
         P_inv = P.transpose(0, 1)
         dag_adj = self.sample_edges()
-        dag_adj = dag_adj * torch.matmul(torch.matmul(P_inv, self.mask), P)  # apply autoregressive masking
+        dag_adj = dag_adj * torch.matmul(
+            torch.matmul(P_inv, self.mask), P
+        )  # apply autoregressive masking
         return dag_adj
 
     def log_prob(self, dag_adj):
@@ -117,7 +128,9 @@ class ProbabilisticDAG(nn.Module):
     def deterministic_permutation(self, hard=True):
         if self.order_type == "sinkhorn":
             log_alpha = F.logsigmoid(self.perm_weights)
-            P, _ = gumbel_sinkhorn(log_alpha, temp=self.temperature, hard=hard, noise_factor=0)
+            P, _ = gumbel_sinkhorn(
+                log_alpha, temp=self.temperature, hard=hard, noise_factor=0
+            )
             P = P.squeeze().to(device)
         elif self.order_type == "topk":
             sort = SoftSort_p1(hard=hard, tau=self.temperature)
@@ -129,7 +142,9 @@ class ProbabilisticDAG(nn.Module):
         P = self.deterministic_permutation()
         P_inv = P.transpose(0, 1)
         dag = (torch.sigmoid(self.edge_log_params.detach()) > threshold).float()
-        dag = dag * torch.matmul(torch.matmul(P_inv, self.mask), P)  # apply autoregressive masking
+        dag = dag * torch.matmul(
+            torch.matmul(P_inv, self.mask), P
+        )  # apply autoregressive masking
         return dag
 
     # TODO: shit
@@ -137,7 +152,9 @@ class ProbabilisticDAG(nn.Module):
         P = self.deterministic_permutation()
         P_inv = P.transpose(0, 1)
         e = torch.sigmoid(self.edge_log_params.detach())
-        e = e * torch.matmul(torch.matmul(P_inv, self.mask), P)  # apply autoregressive masking
+        e = e * torch.matmul(
+            torch.matmul(P_inv, self.mask), P
+        )  # apply autoregressive masking
         return e
 
     def print_parameters(self, prob=True):

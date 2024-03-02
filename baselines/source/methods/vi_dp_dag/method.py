@@ -8,6 +8,11 @@ import networkx as nx
 from source.base import AbstractBaseline
 
 from .probabilistic_dag import ProbabilisticDAG as FixedProbabilisticDAG
+
+import os, sys
+
+_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(_DIR)
 import src.probabilistic_dag_model.probabilistic_dag  # type: ignore
 
 setattr(
@@ -36,7 +41,6 @@ class VI_DP_DAG(AbstractBaseline):
 
         # parse args
         self.model_args = {
-            "input_dim": self.samples.shape[1],
             "output_dim": 1,
             "ma_hidden_dims": [16, 16, 16],
             "ma_architecture": "linear",
@@ -59,7 +63,7 @@ class VI_DP_DAG(AbstractBaseline):
         self.max_epochs = max_epochs
         self.patience = 10
         self.frequency = 2
-        self.model_path = "saved_model"
+        self.model_path = os.path.join(_DIR, "VI_DP_DAG_saved_model")
         self.model = None
         self.val_size = 0.1
         self.batch_size = 64
@@ -67,11 +71,13 @@ class VI_DP_DAG(AbstractBaseline):
     def train_and_predict(self):
         if self.model is None:
             samples = self.get_samples(conversion="tensor").float()
+            self.model_args["input_dim"] = samples.shape[1]
+            val_size = int(self.val_size * len(samples))
             train_data, val_data = torch.utils.data.random_split(
                 samples,
                 [
-                    int((1 - self.val_size) * len(samples)),
-                    int(self.val_size * len(samples)),
+                    len(samples) - val_size,
+                    val_size,
                 ],
             )
             train_dataloader = torch.utils.data.DataLoader(

@@ -55,7 +55,6 @@ class DAGuerreo(AbstractBaseline):
         self.args.nogpu = False
         self.seed = seed
         self.args.equations = "linear" if self.linear else "nonlinear"
-        self.args.wandb = False
         self.args.num_epochs = num_epochs
         self.args.joint = joint
         self.args.structure = "sp_map" if sp_map else "tk_sp_max"
@@ -63,7 +62,6 @@ class DAGuerreo(AbstractBaseline):
     @staticmethod
     def _estimate_order_dat(samples, args, seed):
         print(args)
-        wandb.init(mode="disabled")
         utils.init_seeds(seed=seed)
         torch.set_default_dtype(torch.double)
         daguerro = Daguerro.initialize(samples, args, args.joint)

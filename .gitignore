@@ -182,5 +182,5 @@ results/*
 results-epoch-*.json
 *.slrm
 oslow/post_processing/tmp_*
-baselines/saved_model
+**/saved_model
 baselines/launch_baseline.slrm

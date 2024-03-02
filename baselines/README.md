@@ -10,18 +10,9 @@ git clone git@github.com:vzantedeschi/DAGuerreotype.git
 cd DAGuerreotype
 chmod +x linux-install.sh
 ```
-Then, you may remove the last lines in the `linux-install.sh` file (from the line `# install R and libraries to compute SID (optional)` to the end) if you do not have `sudo` access. Finally, you run the following (assuming the conda environment is activated):
+Then, you may remove the last lines in the `linux-install.sh` file (from the line `# install R and libraries to compute SID (optional)` to the end) if you do not have `sudo` access. Finally, you run the following:
 ```bash
 ./linux-install.sh
-python setup.py develop
-```
-## VI-DP-DAG
-
-For `VI-DP-DAG` ([Differentiable Dag Sampling](https://arxiv.org/abs/2203.08509)), run the following commands to install the `src` package used in the [repo](https://github.com/sharpenb/Differentiable-DAG-Sampling) (assuming the conda environment is activated):
-
-```bash
-git clone git@github.com:sharpenb/Differentiable-DAG-Sampling.git
-cd Differentiable-DAG-Sampling
 python setup.py install
 ```
 
