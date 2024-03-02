@@ -1,6 +1,10 @@
 # Setup
 ## DAGuerreo
-For `DAGuerreo` ([DAG Learning on the Permutahedron](https://arxiv.org/abs/2301.11898)), you need to run:
+For `DAGuerreo` ([DAG Learning on the Permutahedron](https://arxiv.org/abs/2301.11898)), you first need to install the following packages (assuming the conda environment is activated):
+```bash
+python -m pip install causaldag entmax
+```
+You then run:
 ```bash
 git clone git@github.com:vzantedeschi/DAGuerreotype.git
 cd DAGuerreotype
@@ -9,7 +13,7 @@ chmod +x linux-install.sh
 Then, you may remove the last lines in the `linux-install.sh` file (from the line `# install R and libraries to compute SID (optional)` to the end) if you do not have `sudo` access. Finally, you run the following (assuming the conda environment is activated):
 ```bash
 ./linux-install.sh
-python setup.py install
+python setup.py develop
 ```
 ## VI-DP-DAG
 

@@ -108,4 +108,5 @@ def main(conf):
 
 
 if __name__ == "__main__":
+    from baselines.source.methods.vi_dp_dag.method import VI_DP_DAG
     main()
