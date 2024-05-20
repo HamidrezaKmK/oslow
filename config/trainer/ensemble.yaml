@@ -4,7 +4,7 @@ train_fixed: false
 _target_: oslow.ensemble.EnsembleTrainer
 _partial_: true
 device: cuda
-perm_list: ${get_permutations:3}
+perm_list: ${get_permutations:${data.graph_generator.num_nodes}}
 
 max_epochs: 500
 

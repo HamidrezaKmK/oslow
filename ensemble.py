@@ -90,7 +90,6 @@ def main(conf):
         wandb.init(
             dir=conf.out_dir,
             project=conf.wandb.project,
-            entity=conf.wandb.entity,
             config=OmegaConf.to_container(conf, resolve=True),
             name=conf.wandb.run_name,
             id=conf.wandb.run_id,

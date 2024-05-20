@@ -9,7 +9,6 @@ defaults:
 wandb:
   run_name: baseline
   project: baseline
-  entity: ordered-causal-discovery
 
 DAG: true # whether to learn the DAG instead of the order
 

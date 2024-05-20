@@ -1,6 +1,6 @@
 defaults:
   - data: default
-  - model: misspecified
+  - model: specified
   - trainer: ensemble
   - hydra: default
   - override hydra/hydra_logging: disabled
@@ -10,7 +10,6 @@ defaults:
 wandb:
   run_name: ensemble
   project: ensemble
-  entity: ordered-causal-discovery
 
 flow_batch_size: 128
 flow_ensemble_batch_size: 8

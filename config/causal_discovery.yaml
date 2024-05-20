@@ -10,7 +10,6 @@ defaults:
 wandb:
   run_name: order_discovery
   project: order_discovery
-  entity: ordered-causal-discovery
 
 flow_batch_size: 128
 permutation_batch_size: 128
