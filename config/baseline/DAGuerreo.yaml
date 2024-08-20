@@ -1,4 +1,4 @@
-_target_: baselines.source.methods.daguerreo.DAGuerreo
+_target_: baselines.DAGuerreo
 linear: false
 joint: false
 sp_map: false

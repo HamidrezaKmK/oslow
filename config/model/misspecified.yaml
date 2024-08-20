@@ -1,6 +1,6 @@
 _target_: oslow.models.oslow.OSlow
 in_features: ${data.graph_generator.num_nodes} # take the number of nodes from the graph
-layers: [100, 100]
+layers: [128, 64, 128]
 dropout: null
 num_transforms: 1 # number of transformations to apply (you can change)
 residual: false

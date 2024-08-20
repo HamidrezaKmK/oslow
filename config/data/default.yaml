@@ -8,13 +8,13 @@ graph_generator:
   enforce_ordering: null
 noise_generator:
   _target_: oslow.data.synthetic.utils.RandomGenerator
-  seed: 42
+  seed: ${..graph_generator.seed}
   noise_type: normal
   loc: 0
   scale: 1
 link_generator:
   _target_: oslow.data.synthetic.utils.RandomGenerator
-  seed: 42
+  seed: ${..graph_generator.seed}
   noise_type: uniform
   low: 1
   high: 2

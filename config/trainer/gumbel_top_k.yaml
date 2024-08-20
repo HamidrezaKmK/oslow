@@ -15,7 +15,7 @@ _partial_: true
 device: cuda
 checkpointing: null
 
-max_epochs: 500
+max_epochs: 100
 
 flow_optimizer:
   _target_: torch.optim.Adam

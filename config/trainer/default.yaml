@@ -2,7 +2,7 @@ defaults:
   - permutation_learning_module: default
   - _self_
 
-_target_: oslow.training.trainer.Trainer
+_target_: oslow.training.score_based_trainer.ScoreBasedTrainer
 _partial_: true
 device: cuda
 checkpointing: null
@@ -11,16 +11,20 @@ max_epochs: 500
 
 flow_optimizer:
   _target_: torch.optim.Adam
-  lr: 0.00005
+  lr: 0.001
   _partial_: true
 
-permutation_optimizer: ${.flow_optimizer}
+permutation_optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.0005
+  _partial_: true
 
 temperature: 1.0
 temperature_scheduler: linear
 
+
 # Frequencies for the alternating optimization
-permutation_frequency: 1
+permutation_frequency: 3
 flow_frequency: 1
 
 flow_lr_scheduler:
@@ -28,5 +32,5 @@ flow_lr_scheduler:
   _partial_: true
 permutation_lr_scheduler: ${.flow_lr_scheduler}
 
-birkhoff_plot_frequency: 10
+birkhoff_plot_frequency: null
 birkhoff_plot_num_samples: 100

@@ -12,7 +12,7 @@ wandb:
   project: ensemble
 
 flow_batch_size: 128
-flow_ensemble_batch_size: 8
+flow_ensemble_batch_size: 128
 
 test_run: false
 out_dir: runs/

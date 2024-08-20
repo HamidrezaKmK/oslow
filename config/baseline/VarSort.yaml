@@ -1,2 +1,2 @@
-_target_: baselines.source.methods.var.Var
+_target_: baselines.Var
 verbose: false

@@ -11,8 +11,8 @@ wandb:
   run_name: order_discovery
   project: order_discovery
 
-flow_batch_size: 128
-permutation_batch_size: 128
+flow_batch_size: ${eval:'64 if ${data.graph_generator.num_nodes} >= 5 else 128'}
+permutation_batch_size: ${eval:'32 if ${data.graph_generator.num_nodes} >= 5 else 64'}
 
 test_run: false
 out_dir: runs/

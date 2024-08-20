@@ -1,0 +1,27 @@
+---
+program: train.py
+name: pnl_sinusoid_baseline
+method: grid
+metric:
+    goal: minimize
+    name: permutation/best_backward_penalty
+parameters:
+    data.graph_generator.num_nodes:
+        values: [3, 4, 5, 6]
+
+    data.graph_generator.seed:
+        values: [42, 712, 8374]
+
+    baseline:
+        values: [bi_LSNM, CAM, DAGuerreo, SCORE, VarSort, VI_DP_DAG]
+
+command:
+    - ${env}
+    - ./slurm/baseline_runner.sh
+    - ${args_no_hyphens}
+    - test_run=false
+    - data=synthetic_sinusoid
+    - data.additive=false
+    - data.post_non_linear_transform=x_plus_sin
+    - data.num_samples=1000
+    - data.graph_generator.graph_type=erdos_renyi

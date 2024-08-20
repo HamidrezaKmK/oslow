@@ -1,4 +1,4 @@
-_target_: baselines.source.methods.vi_dp_dag.method.VI_DP_DAG
+_target_: baselines.VI_DP_DAG
 seed: 42
 method: topk
 max_epochs: 100

@@ -8,7 +8,7 @@ defaults:
 
 wandb:
   run_name: baseline
-  project: baseline
+  project: baselines
 
 DAG: true # whether to learn the DAG instead of the order
 

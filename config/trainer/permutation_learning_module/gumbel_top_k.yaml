@@ -1,8 +1,10 @@
-method: gumbel-top-k
-num_samples: 32
+_target_: oslow.training.permutation_learning.buffered_methods.GumbelTopK
+_partial_: true
+initialization_function:
+  _target_: oslow.training.permutation_learning.initialization.uniform_gamma_init_func
+  mode: permutation-matrix
+  _partial_: true
 
-# for parent config
-permutation_batch_size: 8
-
-buffer_size: 32
-buffer_update: 32
+num_samples: ${data.num_samples}
+buffer_size: 10
+buffer_update: 10

@@ -10,7 +10,7 @@ from random_word import RandomWords
 sys.path.append("..")
 sys.path.append("../oslow")
 from oslow.data import OCDDataset
-from baselines.source.base import AbstractBaseline
+from baselines.codes.base import AbstractBaseline
 
 
 def get_torch_distribution(distr_name):

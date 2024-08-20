@@ -6,6 +6,7 @@ graph_generator:
   num_nodes: 3
   seed: 42
   enforce_ordering: null
+  p: 0.4
 noise_generator:
   _target_: oslow.data.synthetic.utils.RandomGenerator
   seed: 42

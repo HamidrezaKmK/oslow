@@ -1,2 +1,2 @@
-_target_: baselines.source.methods.cam.CAM
+_target_: baselines.CAM
 verbose: false
