@@ -11,10 +11,11 @@ from oslow.data.synthetic.utils import RandomGenerator
 from oslow.data.synthetic.parametric import AffineParametericDataset
 from oslow.data.synthetic.nonparametric import AffineNonParametericDataset
 from oslow.models.normalization import ActNorm
+from itertools import permutations
 
 # Set up logging
 logging.basicConfig(filename='causal_ordering_test_results3120.log', level=logging.INFO, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+                    format='%(asctime)s - %(message)s')
 
 # Set device
 if torch.cuda.is_available():
@@ -187,6 +188,38 @@ def run_single_test(dataset_name, dataset, true_ordering, num_covariates):
         num_workers=4
     )
     
+    # SANITY CHECK: does the model with the lowest log probability correspond to the true ordering?
+    logging.info("Checking whether model with true ordering has highest log likelihood...")
+    perms = list(permutations(range(num_covariates)))
+    results = {}
+
+    for perm in perms:
+        model = create_oslow_model_with_ordering(perm).to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+        
+        for epoch in range(30):  # Train for 30 epochs
+            epoch_log_probs = []
+            for batch, in dataloader:
+                batch = batch.to(device)
+                log_prob = model.log_prob(batch).mean()
+                loss = -log_prob
+                
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                
+                epoch_log_probs.append(log_prob.item())
+
+            results[perm] = epoch_log_probs[-1]
+
+    # Log results
+    logging.info("Sanity check results:")
+    for perm, log_prob in sorted(results.items(), key=lambda x: x[1], reverse=True):
+        logging.info(f"   Ordering {perm}: Final log likelihood = {log_prob}")
+    
+    logging.info(f"True ordering: {tuple(true_ordering)}")
+
+    logging.info("\nStarting recursive ordering algorithm...")
     discovered_ordering = determine_ordering(
         remaining_covariates=list(range(num_covariates)),
         dataloader=dataloader,
