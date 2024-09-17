@@ -14,7 +14,7 @@ from oslow.models.normalization import ActNorm
 from itertools import permutations
 
 # Set up logging
-logging.basicConfig(filename='causal_ordering_test_results3120.log', level=logging.INFO, 
+logging.basicConfig(filename='causal_ordering_test_results120.log', level=logging.INFO, 
                     format='%(asctime)s - %(message)s')
 
 # Set device
@@ -51,7 +51,7 @@ def create_oslow_model_with_ordering(ordering, additive=False, base_distribution
         num_transforms=1,
         normalization=ActNorm,
         base_distribution=base_distribution,
-        ordering=torch.tensor(ordering)
+        ordering=torch.tensor(ordering) # this should be set in log_prob perm mat
     )
 
 def initialize_models_and_optimizers(determined_ordering, remaining_covariates, num_total_covariates, model_params):
@@ -114,12 +114,14 @@ def determine_ordering(remaining_covariates, dataloader, model_params, training_
     for perm_key in tqdm(models, desc=f"Training models for {len(remaining_covariates)} remaining covariates"):
         for model_index in range(len(models[perm_key])):
             model = models[perm_key][model_index]
-            optimizer = torch.optim.Adam(model.parameters(), lr=training_params['lr'])
+            optimizer = torch.optim.AdamW(model.parameters(), lr=training_params['lr'], weight_decay=0.5)
             
             for epoch in range(training_params['epoch_count']):
                 for batch, in dataloader:
+                    # sample the remaining covariates in the order specified by the permutation
+                    
                     batch = batch.to(device)
-                    log_prob = model.log_prob(batch).mean()
+                    log_prob = model.log_prob(batch, perm_mat=[0,2,1]).mean()
                     loss = -log_prob
                     
                     optimizer.zero_grad()
@@ -195,7 +197,7 @@ def run_single_test(dataset_name, dataset, true_ordering, num_covariates):
 
     for perm in perms:
         model = create_oslow_model_with_ordering(perm).to(device)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=0.005, weight_decay=0.5)
         
         for epoch in range(30):  # Train for 30 epochs
             epoch_log_probs = []
@@ -239,9 +241,9 @@ def run_single_test(dataset_name, dataset, true_ordering, num_covariates):
 
 # Main script
 if __name__ == "__main__":
-    num_covariates = 4
+    num_covariates = 3
     num_samples = 30000
-    true_ordering = [3, 1, 2, 0]
+    true_ordering = [1, 2, 0]
 
     graph_generator = GraphGenerator(
         num_nodes=num_covariates,
