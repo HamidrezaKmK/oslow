@@ -37,12 +37,12 @@ def sample_permutations(remaining, num_samples=10):
         sampled_permutations.append(perm)
     return sampled_permutations
 
-def create_oslow_model_with_ordering(ordering, additive=False, base_distribution=None):
+def create_oslow_model_with_ordering(order=None, additive=False, base_distribution=None):
     if base_distribution is None:
         base_distribution = torch.distributions.Normal(loc=0, scale=1)
     
     return OSlow(
-        in_features=len(ordering),
+        in_features=len(order),
         layers=[100, 100],
         dropout=None,
         residual=False,
@@ -51,45 +51,16 @@ def create_oslow_model_with_ordering(ordering, additive=False, base_distribution
         num_transforms=1,
         normalization=ActNorm,
         base_distribution=base_distribution,
-        ordering=torch.tensor(ordering, dtype=torch.int32) # this should be set in log_prob perm mat
+        ordering=None if not order else torch.tensor(order, dtype=torch.int32) # this should be set in log_prob perm mat
     )
 
-def initialize_models_and_optimizers(determined_ordering, remaining_covariates, num_total_covariates, model_params):
-    all_permutations = []
-    for i in range(len(remaining_covariates)):
-        start_covariate = remaining_covariates[i]
-        if i == 0:
-            permutation_remaining_covariates = remaining_covariates[1:]
-        elif i == len(remaining_covariates) - 1:
-            permutation_remaining_covariates = remaining_covariates[:i]
-        else:
-            permutation_remaining_covariates = remaining_covariates[:i] + remaining_covariates[i+1:]
-        
-        samples = sample_permutations(permutation_remaining_covariates, num_samples=10)
-        all_permutations.extend([[start_covariate] + sample for sample in samples])
-    
+def initialize_models_and_optimizers(remaining_covariates):
     models = {}
     histories = {}
 
-    for perm in all_permutations:
-        full_perm = determined_ordering + perm
-        perm_key = tuple(full_perm)
-
-        model = create_oslow_model_with_ordering(full_perm, **model_params).to(device)
-
-        if perm_key not in models:
-            models[perm_key] = []
-            histories[perm_key] = []
-
-        models[perm_key].append(model)
-        histories[perm_key].append([])
-
-        perm_matrix = torch.zeros((num_total_covariates, num_total_covariates))
-        for i, j in enumerate(full_perm):
-            perm_matrix[i, j] = 1
-        perm_matrix = perm_matrix.to(device)
-
-        models[perm_key][-1].perm_matrix = perm_matrix
+    for start_covariate in remaining_covariates:
+        models[start_covariate] = create_oslow_model_with_ordering(additive=True)
+        histories[start_covariate] = []
 
     return models, histories
 
@@ -107,9 +78,69 @@ def determine_ordering(remaining_covariates, dataloader, model_params, training_
     logging.info(f"  Fixed ordering so far: {determined_ordering}")
     logging.info(f"  Remaining covariates: {remaining_covariates}")
 
-    models, histories = initialize_models_and_optimizers(
-        determined_ordering, remaining_covariates, num_total_covariates, model_params
-    )
+    models, histories = initialize_models_and_optimizers(remaining_covariates)
+    # for i in range(permutations)...
+    # NOTE: maybe look up some kind of formula to generate all the permutation matrices or use a scatter function
+    # TODO: generate the permutation matrices beforehand and look them up
+    for key, model in models.items():
+        model.to(device)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=training_params['lr'], weight_decay=0.5)
+
+        histories[key] = []
+        progress_bar = tqdm(range(training_params['epoch_count']), desc="training model with start covariate {}".format(key))
+        start_covariate = key
+        for epoch in progress_bar:
+            for batch, in dataloader:
+                batch = batch.to(device)
+                # TODO: sample batch_size permutations from the remaining covariates without replacement
+                # take out the start covariate from the remaining covariates and then shuffle the rest
+                remaining = [i for i in remaining_covariates if i != start_covariate]
+                remaining = random.shuffle(remaining)
+                order = determined_ordering + [start_covariate] + remaining
+
+                # create a permutation matrix from the order
+                permutation_matrix = torch.zeros((3, 3))
+                # (b, 3, 3)
+                for i, j in enumerate(order):
+                    permutation_matrix[i, j] = 1
+                    
+                # can set perm_mat to be (B, 3, 3) where B is the batch size
+                loss = -model.log_prob(batch, perm_mat=permutation_matrix).mean()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                histories[key].append(loss.item())
+    
+    starting_covariate_avg_log_probs = {}
+    for covariate in remaining_covariates:
+        relevant_perms = [perm for perm in models.keys() if perm[len(determined_ordering)] == covariate]
+        total_log_prob = 0
+        total_models = 0
+        
+        for perm in relevant_perms:
+            for model_history in histories[perm]:
+                total_log_prob += model_history[-1]
+                total_models += 1
+        
+        if total_models > 0:
+            avg_log_prob = total_log_prob / total_models
+        else:
+            avg_log_prob = float('-inf')
+        
+        starting_covariate_avg_log_probs[covariate] = avg_log_prob
+
+    next_covariate = max(starting_covariate_avg_log_probs, key=starting_covariate_avg_log_probs.get)
+    
+    logging.info(f"\nSanity Check Results at depth {depth}:")
+    logging.info(f"  Average log probabilities for each starting covariate:")
+    for covariate, avg_log_prob in starting_covariate_avg_log_probs.items():
+        logging.info(f"    Covariate {covariate}: {avg_log_prob}")
+    logging.info(f"  Best covariate at this stage: {next_covariate}")
+    logging.info(f"  Current ordering so far (including new covariate): {determined_ordering + [next_covariate]}")
+    logging.info(f"  True ordering so far (including new covariate): {true_ordering[:depth+1]}")
+    
+    remaining_covariates = [i for i in remaining_covariates if i != next_covariate]
+    return determine_ordering(remaining_covariates, dataloader, model_params, training_params, determined_ordering + [next_covariate], num_total_covariates, true_ordering, depth+1)
 
     for perm_key in tqdm(models, desc=f"Training models for {len(remaining_covariates)} remaining covariates"):
         for model_index in range(len(models[perm_key])):
@@ -256,6 +287,7 @@ if __name__ == "__main__":
     laplace_noise_generator = RandomGenerator('laplace', seed=10, loc=0, scale=1)
     link_generator = RandomGenerator('uniform', seed=110, low=1, high=1)
 
+    # NOTE: look up real world datasets? but then might not have the ground truth ordering
     datasets = {
         "sinusoidal": AffineParametericDataset(
             num_samples=num_samples,
@@ -264,6 +296,7 @@ if __name__ == "__main__":
             link_generator=link_generator,
             link="sinusoid",
             perform_normalization=False,
+            additive=True,
         ),
         "laplace_linear": AffineParametericDataset(
             num_samples=num_samples,
