@@ -39,6 +39,8 @@ class AffineParametericDataset(OCDDataset):
     t_function(x) = sin(x) + x if link == "sinusoid"
     t_function(x) = x**3 if link == "cubic"
     t_function(x) = x if link == "linear"
+    x^2 if link == "square" 
+    |X| if link == "absolute"
     """
 
     def __init__(
@@ -48,7 +50,7 @@ class AffineParametericDataset(OCDDataset):
         link_generator: RandomGenerator,
         graph_generator: GraphGenerator,
         *args,
-        link: Literal["sinusoid", "cubic", "linear"] = "sinusoid",
+        link: Literal["sinusoid", "cubic", "linear", "square", "absolute", "sigmoid"] = "sinusoid",
         perform_normalization: bool = True,
         additive: bool = False,
         post_non_linear_transform: Optional[
@@ -100,11 +102,18 @@ class AffineParametericDataset(OCDDataset):
                 t = t_pre**3
             elif link == "linear":
                 t = t_pre
+            elif link == "square":
+                t = t_pre**2
+            elif link == "absolute":
+                t = np.abs(t_pre)
+            elif link == "sigmoid":
+                t = 1 / (1 + np.exp(-t_pre))
             else:
                 raise Exception(f"Link {link} not supported")
             x = t + (s * noises if not additive else noises)
 
-            if perform_normalization:
+            if perform_normalization: 
+                # NOTE: be sure that standardize is not called in OCDDataset if we perform normalization here 
                 x = standardize(x)
 
             if post_non_linear_transform is not None:
@@ -113,6 +122,7 @@ class AffineParametericDataset(OCDDataset):
             dset[v] = x.reshape(-1, 1)
 
         if not "name" in kwargs:
-            kwargs["name"] = f"AffineNonParametericDataset"
+            kwargs["name"] = f"AffineParametericDataset"
 
-        super().__init__(dset, graph, *args, **kwargs)
+        super().__init__(dset, graph, *args, **kwargs)  
+        # NOTE: be sure that standardize is not called in OCDDataset if we perform normalization earlier
