@@ -75,8 +75,6 @@ def init_run_dir(conf):
     conf.wandb.resume = resume
     conf.wandb.run_id = run_id
     conf.wandb.run_name = run_name
-    with open(config_yaml, "w") as fp:
-        OmegaConf.save(conf, fp.name)
     return conf
 
 

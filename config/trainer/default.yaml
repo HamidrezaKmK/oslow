@@ -1,5 +1,5 @@
 defaults:
-  - permutation_learning_module: default
+  - permutation_learning_module: gumbel_top_k
   - _self_
 
 _target_: oslow.training.score_based_trainer.ScoreBasedTrainer
@@ -21,7 +21,6 @@ permutation_optimizer:
 
 temperature: 1.0
 temperature_scheduler: linear
-
 
 # Frequencies for the alternating optimization
 permutation_frequency: 3
