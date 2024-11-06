@@ -54,7 +54,7 @@ class AffineParametericDataset(OCDDataset):
         perform_normalization: bool = True,
         additive: bool = False,
         post_non_linear_transform: Optional[
-            Literal["exp", "softplus", "x_plus_sin", "nonparametric"]
+            Literal["exp", "softplus", "x_plus_sin", "nonparametric", "sinusoid", "sigmoid", "tanh", "spline"]
         ] = None,
         **kwargs,
     ):
@@ -65,7 +65,8 @@ class AffineParametericDataset(OCDDataset):
             noise_generator: An object of type RandomGenerator that generates the parameters for the noise function
             link_generator: An object of type RandomGenerator that generates the parameters for the s and t functions
             link: a string representing the link function to use
-            perform_normalization: whether to normalize the data after generating the column, this is done for numerical stability
+            normalize_each_var: whether to normalize the data after generating the column, this is done for numerical stability
+                                Note that normalization is done before PNL to maintain LSNM structure.
             additive: whether to use an additive noise model or not, for an additive model the noise does not get modulated
         """
         graph: nx.DiGraph = graph_generator.generate_dag()
@@ -113,7 +114,7 @@ class AffineParametericDataset(OCDDataset):
             x = t + (s * noises if not additive else noises)
 
             if perform_normalization: 
-                # NOTE: be sure that standardize is not called in OCDDataset if we perform normalization here 
+                # normalize as we go, each variable at a time
                 x = standardize(x)
 
             if post_non_linear_transform is not None:
@@ -124,5 +125,5 @@ class AffineParametericDataset(OCDDataset):
         if not "name" in kwargs:
             kwargs["name"] = f"AffineParametericDataset"
 
+        # NOTE: this may also perform normalization here. If PNL, don't standardize in OCDDataset
         super().__init__(dset, graph, *args, **kwargs)  
-        # NOTE: be sure that standardize is not called in OCDDataset if we perform normalization earlier

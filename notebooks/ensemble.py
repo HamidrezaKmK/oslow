@@ -20,12 +20,24 @@ import numpy as np
 import matplotlib as mpl
 
 
+################################################
+################################################
+################################################
 # NOTE: set these.
 ground_truth_ordering = [2, 0, 3, 1]
 ground_truth_ordering_str = '2031'
 # Possible options: "sinusoid", "cubic", "linear", "square", "absolute", "sigmoid"
-link_function = "sinusoid"
-pnl_transform = "exp"    # TODO "exp", "softplus", "x_plus_sin"
+link_function = "linear"
+
+# Possible options: "exp", "softplus", "x_plus_sin", "nonparametric", "sigmoid", "tanh", "spline"
+pnl_transform = "softplus" 
+
+# Possible options: "normal", "laplace", "uniform"
+exogenous_noise = 'normal'
+################################################
+################################################
+################################################
+
 
 # Create output directory
 os.makedirs("ensemble_results", exist_ok=True)
@@ -55,7 +67,8 @@ graph_generator = GraphGenerator(
 )
 
 # Setup generators
-gaussian_noise_generator = RandomGenerator('normal', seed=30, loc=0, scale=1)
+# play with the exogeneous noise, maybe use 'laplace' or 'uniform' instead of Gaussian noise
+gaussian_noise_generator = RandomGenerator(exogenous_noise, seed=30, loc=0, scale=1)
 link_generator = RandomGenerator('uniform', seed=1100, low=1, high=1)
 
 generated_dset = AffineParametericDataset(
@@ -64,8 +77,8 @@ generated_dset = AffineParametericDataset(
     noise_generator=gaussian_noise_generator,
     link_generator=link_generator,
     link=link_function,  
-    perform_normalization=False,
-    standard=True,  # what is this??
+    perform_normalization=True, # should always be True
+    standard=False,  # don't use this for PNL, should normalize as we go
     additive=True,  # to make ANM
     post_non_linear_transform=pnl_transform,  # PNL
 )
@@ -94,7 +107,7 @@ model = OSlow(in_features=num_nodes,
               activation=torch.nn.LeakyReLU(),
               additive=True,   # True for ANM
               num_transforms=1,
-              num_post_nonlinear_transforms=1,
+              num_post_nonlinear_transforms=3,
               normalization=ActNorm,
               base_distribution=torch.distributions.Normal(loc=0, scale=1),
               ordering=None)

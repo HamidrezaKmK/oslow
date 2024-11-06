@@ -51,7 +51,7 @@ def standardize(x):
 
 def perform_post_non_linear_transform(
     x,
-    type: Literal["exp", "softplus", "x_plus_sin", "nonparametric", "sinusoid"],
+    type: Literal["exp", "softplus", "x_plus_sin", "nonparametric", "sinusoid", "sigmoid", "tanh", "spline"],
     additional_params: Optional[dict] = None,
 ):
     """
@@ -67,5 +67,46 @@ def perform_post_non_linear_transform(
         additional_params = additional_params or {}
         kernel = rbf_kernel(x.reshape(-1, 1), **additional_params)
         return np.matmul(kernel, x.reshape(-1, 1))
+    elif type == "sigmoid":
+        scale = additional_params.get('scale', 1.0)
+        return 1 / (1 + np.exp(-scale * x))
+    elif type == "tanh":
+        scale = additional_params.get('scale', 1.0)
+        return np.tanh(scale * x)
+    elif type == "spline":
+        knots = additional_params.get('knots', None)
+        coeffs = additional_params.get('coeffs', None)
+        return cubic_spline(x, knots, coeffs)
     else:
         raise Exception(f"Unknown post non-linear transform {type}")
+
+
+def cubic_spline(x: np.ndarray, knots: Optional[np.ndarray] = None, coeffs: Optional[np.ndarray] = None) -> np.ndarray:
+    """
+    Applies a cubic spline transformation.
+    
+    Args:
+        x: Input array
+        knots: Optional array of knot points. If None, uses evenly spaced knots
+        coeffs: Optional array of coefficients. If None, uses random coefficients
+    
+    Returns:
+        Transformed array using cubic spline interpolation
+    """
+    if knots is None:
+        # Create default knots evenly spaced between min and max of x
+        knots = np.linspace(np.min(x), np.max(x), 5)
+    if coeffs is None:
+        # Create random coefficients for the cubic terms
+        rng = np.random.default_rng(42)
+        coeffs = rng.uniform(0.5, 1.5, size=len(knots)-1)
+    
+    result = np.zeros_like(x)
+    for i in range(len(knots)-1):
+        mask = (x >= knots[i]) & (x < knots[i+1])
+        t = (x[mask] - knots[i]) / (knots[i+1] - knots[i])
+        result[mask] = coeffs[i] * (t**3) + (1-coeffs[i]) * t
+
+    # Handle points beyond the last knot
+    result[x >= knots[-1]] = 1
+    return result
