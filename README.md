@@ -62,7 +62,7 @@ python train.py data.graph_generator.num_nodes=4
 
 This is more of a sanity check for the identifiability of datasets. When running the code below, a flow model is trained on all possible combinations of input orderings simultaneously. Then the single flow model can act as an "ensemble", where you can feed in an arbitrary input ordering, and then get the average log-likelihood for all the training data. If the model is identifiable, then the ordering corresponding to the highest log-likelihood should be the true ordering.
 
-When running the code below, an `Oslow` model is trained on all the ordering and a scatterplot is visualized where each point of that scatterplot corresponds to a different ordering. The x-axis is the causal backward count (CBC) penalty of the ordering, and the y-axis is the log-likelihood of the data under that ordering. When the dataset is identifiable, the true ordering should have the highest log-likelihood and the lowest CBC penalty, meaning that there should be lowest and leftmost point in the scatterplot.
+When running the code below, an `Oslow` model is trained on all the ordering and a scatterplot is visualized where each point of that scatterplot corresponds to a different ordering. The x-axis is the causal backward count (CBC) penalty of the ordering, and the y-axis is the negative log-likelihood (NLL) of the data under that ordering. When the dataset is identifiable, the true ordering should have the lowest NLL and the lowest CBC penalty, meaning that there should be lowest and leftmost point in the scatterplot.
 
 ```bash
 python ensemble.py

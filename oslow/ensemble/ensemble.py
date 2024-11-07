@@ -37,7 +37,6 @@ class EnsembleTrainer:
         ],
         perm_list: List[List[int]],
         logging_scatterplot_frequency: int = 1,
-        train_fixed: bool = False,
         device: str = "cpu",
     ):
         """
@@ -60,19 +59,14 @@ class EnsembleTrainer:
         self.model = model.to(device)
 
         self.perm_list = []
-        backward_relative_penalties = []
+        self.cbc_penalties = []
         for perm in perm_list:
-            backward_relative_penalties.append(
+            self.cbc_penalties.append(
                 backward_relative_penalty(perm=perm, dag=dag)
             )
             self.perm_list.append(turn_into_matrix(torch.IntTensor(perm)))
         self.perm_list = torch.stack(self.perm_list).to(device)
-
-        self.probabilities_evaluation = {"fixed_log_prob": [], "ensemble_log_prob": []}
-
-        self.structure_evaluation = {
-            "backward_relative_penalty": backward_relative_penalties,
-        }
+        self.nlls = []
 
         self.flow_ensemble_dataloader = flow_ensemble_dataloader
         self.flow_dataloader = flow_dataloader
@@ -85,13 +79,6 @@ class EnsembleTrainer:
         self.perm_step_count = 0
         self.flow_step_count = 0
 
-        self.train_fixed = train_fixed
-
-    def export_config(self) -> dict:
-        # Returns a dictionary that will be logged onto wandb for the run
-        ret = {}
-        ret["max_epochs"] = self.max_epochs
-        return ret
 
     def train(self, epoch: int, permutations: torch.Tensor, lbl: str):
         avg_loss = []
@@ -124,46 +111,38 @@ class EnsembleTrainer:
             self.flow_scheduler.step()
 
     def visualize_scatterplot(self):
-        for first_side in self.probabilities_evaluation.keys():
-            for second_side in self.structure_evaluation.keys():
 
-                first_list = self.probabilities_evaluation[first_side]
-                second_list = self.structure_evaluation[second_side]
+        img_data = None
 
-                if len(first_list) == 0 or len(second_list) == 0:
-                    continue
+        try:
+            # plot the log_prob values of the closest references using the data if available
+            fig, ax = plt.subplots()
+            ax.scatter(
+                self.cbc_penalties,
+                self.nlls,
+                label=f"nll vs. cbc",
+            )
+            ax.set_ylabel("negative log-likelihood (NLL)")
+            ax.set_xlabel("Causal Backward Count (CBC) penalty")
+            # draw everything to the figure for conversion
+            fig.canvas.draw()
+            # convert the figure to a numpy array
+            img_data = np.fromstring(
+                fig.canvas.tostring_rgb(), dtype=np.uint8, sep=""
+            )
+            img_data = img_data.reshape(
+                fig.canvas.get_width_height()[::-1] + (3,)
+            )
+        finally:
+            plt.close()
 
-                img_data = None
-
-                try:
-                    # plot the log_prob values of the closest references using the data if available
-                    fig, ax = plt.subplots()
-                    ax.scatter(
-                        second_list,
-                        first_list,
-                        label=f"{first_side} vs {second_side}",
-                    )
-                    ax.set_xlabel(second_side)
-                    ax.set_ylabel(first_side)
-                    # draw everything to the figure for conversion
-                    fig.canvas.draw()
-                    # convert the figure to a numpy array
-                    img_data = np.fromstring(
-                        fig.canvas.tostring_rgb(), dtype=np.uint8, sep=""
-                    )
-                    img_data = img_data.reshape(
-                        fig.canvas.get_width_height()[::-1] + (3,)
-                    )
-                finally:
-                    plt.close()
-
-                wandb.log(
-                    {
-                        f"scatterplot/{first_side}_vs_{second_side}": wandb.Image(
-                            img_data
-                        )
-                    }
+        wandb.log(
+            {
+                f"scatterplot/nll_vs_cbc": wandb.Image(
+                    img_data
                 )
+            }
+        )
 
     def get_log_prob(self, perm: torch.Tensor) -> float:
         log_probs = []
@@ -187,34 +166,10 @@ class EnsembleTrainer:
             self.train(epoch, self.perm_list, lbl="ensemble")
 
             if (epoch + 1) % self.logging_scatterplot_frequency == 0:
-                self.probabilities_evaluation["ensemble_log_prob"] = []
+                self.nlls = []
                 for perm in self.perm_list:
-                    self.probabilities_evaluation["ensemble_log_prob"].append(
-                        self.get_log_prob(perm)
-                    )
+                    self.nlls.append(-self.get_log_prob(perm))
                 self.visualize_scatterplot()
 
             wandb.log({"epoch/ensemble": epoch})
 
-        if self.train_fixed:
-            for perm in self.perm_list:
-                perm_str = torch.argmax(perm, dim=-1).cpu().numpy().tolist()
-                perm_str = "_".join([str(x) for x in perm_str])
-
-                # Reset the flow parameters
-                self.model.reinitialize()
-                self.flow_optimizer = self.flow_optimizer_instantiate(
-                    self.model.parameters()
-                )
-                self.flow_scheduler = self.flow_lr_scheduler_instantiate(
-                    self.flow_optimizer
-                )
-
-                for epoch in range(self.max_epochs):
-                    self.train(epoch, perm.unsqueeze(0), lbl=perm_str)
-                    wandb.log({f"epoch/{perm_str}": epoch})
-                self.probabilities_evaluation["fixed_log_prob"].append(
-                    self.get_log_prob(perm)
-                )
-
-            self.visualize_scatterplot()
