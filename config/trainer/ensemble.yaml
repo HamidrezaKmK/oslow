@@ -7,7 +7,7 @@ device: cuda
 # load all the possible permutations into the trainer
 perm_list: ${get_permutations:${data.graph_generator.num_nodes}}
 
-max_epochs: 50
+max_epochs: 100
 
 flow_optimizer:
   _target_: torch.optim.Adam

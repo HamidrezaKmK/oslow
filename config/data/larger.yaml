@@ -1,0 +1,25 @@
+_target_: oslow.data.synthetic.parametric.AffineParametericDataset
+num_samples: 50000
+graph_generator:
+  _target_: oslow.data.synthetic.graph_generator.GraphGenerator
+  graph_type: full
+  num_nodes: 5
+  seed: 42
+  enforce_ordering: null
+noise_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: ${..graph_generator.seed}
+  noise_type: normal
+  loc: 0
+  scale: 1
+link_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: ${..graph_generator.seed}
+  noise_type: uniform
+  low: 1
+  high: 2
+link: sinusoid
+perform_normalization: true
+additive: false
+post_non_linear_transform: null
+standard: true # very important to set this to true for model ensemble to work better

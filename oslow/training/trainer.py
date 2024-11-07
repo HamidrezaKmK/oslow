@@ -56,9 +56,8 @@ class Trainer:
             [torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler
         ],
         permutation_learning_module: Callable[[int], PermutationLearningModule],
-        temperature: float = 1.0,
-        temperature_scheduler: Literal['constant',
-                                       'linear', 'exponential'] = 'constant',
+        temperature: float,
+        temperature_scheduler: Literal['constant', 'linear', 'exponential'],
         device: str = "cpu",
         
         birkhoff_plot_frequency: Optional[int] = None,

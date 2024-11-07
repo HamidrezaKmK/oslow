@@ -64,6 +64,8 @@ This is more of a sanity check for the identifiability of datasets. When running
 
 When running the code below, an `Oslow` model is trained on all the ordering and a scatterplot is visualized where each point of that scatterplot corresponds to a different ordering. The x-axis is the causal backward count (CBC) penalty of the ordering, and the y-axis is the negative log-likelihood (NLL) of the data under that ordering. When the dataset is identifiable, the true ordering should have the lowest NLL and the lowest CBC penalty, meaning that there should be lowest and leftmost point in the scatterplot.
 
+_Note_: If you have a synthetic dataset that does not pass this sanity check, it is not identifiable and running the causal discovery algorithm on it will not yield meaningful results.
+
 ```bash
 python ensemble.py
 ```
