@@ -9,7 +9,7 @@ from oslow.training.permutation_learning.baseline_methods import PermutationLear
 from oslow.training.permutation_learning.buffered_methods import BufferedPermutationLearning
 import networkx as nx
 from oslow.evaluation import backward_relative_penalty
-
+from oslow.training.utils import matperm2listperm
 
 @lru_cache(maxsize=128)
 def get_all_permutation_matrices(num_nodes: int) -> torch.Tensor:
@@ -28,7 +28,7 @@ def get_all_permutation_matrices(num_nodes: int) -> torch.Tensor:
 
 
 def get_label_from_permutation_matrix(permutation_matrix: torch.Tensor) -> str:
-    return "".join([str(int(i)) for i in permutation_matrix.argmax(dim=-1)])
+    return "".join([str(int(i)) for i in permutation_matrix.argmax(dim=0)])
 
 
 def visualize_birkhoff_polytope(
@@ -149,8 +149,7 @@ def visualize_birkhoff_polytope(
                         txt = f"{txt}:{average_log_prob:.2f}:#{num_samples}"
 
             if dag is not None:
-                perm_list = torch.argmax(
-                    permutation, dim=-1).cpu().numpy().tolist()
+                perm_list = matperm2listperm(permutation)
                 txt = f"{txt}:{backward_relative_penalty(perm_list, dag):.2f}"
 
             x, y = (

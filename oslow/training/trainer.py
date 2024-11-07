@@ -146,16 +146,6 @@ class Trainer:
 
         # TODO: add checkpointing
         self.checkpointing = None
-
-    def export_config(self) -> dict:
-        # Returns a dictionary that will be logged onto wandb for the run
-        ret = {}
-        ret["max_epochs"] = self.max_epochs
-        ret["flow_frequency"] = self.flow_frequency
-        ret["permutation_frequency"] = self.permutation_frequency
-        ret["temperature"] = self.initial_temperature
-        ret["temperature_scheduler"] = self.temperature_scheduler
-        return ret
     
     def get_temperature(self, epoch: int):
         """
@@ -183,7 +173,7 @@ class Trainer:
 
         permutation = self.permutation_learning_module.get_best(
             temperature=temperature)
-        permutation = permutation.argmax(dim=-1).cpu().numpy().tolist()
+        permutation = permutation.argmax(dim=0).cpu().numpy().tolist()
         backward_penalty = backward_relative_penalty(permutation, self.dag)
         wandb.log({"evaluation/best_backward_penalty": backward_penalty})
 
@@ -195,7 +185,7 @@ class Trainer:
         sm = 0
         for perm, c in zip(sampled_permutations_unique, counts):
             backward_penalty = backward_relative_penalty(
-                perm.argmax(dim=-1).cpu().numpy().tolist(), self.dag)
+                perm.argmax(dim=0).cpu().numpy().tolist(), self.dag)
             sm += c * backward_penalty
         wandb.log(
             {"evaluation/avg_backward_penalty": sm/100}
