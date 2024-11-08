@@ -36,5 +36,5 @@ flow_lr_scheduler:
   _partial_: true
 permutation_lr_scheduler: ${.flow_lr_scheduler}
 
-birkhoff_plot_frequency: 1
+birkhoff_plot_frequency: null
 birkhoff_plot_num_samples: 100
