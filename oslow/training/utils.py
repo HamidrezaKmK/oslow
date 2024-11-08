@@ -42,13 +42,28 @@ def matperm2listperm(perm_mat: torch.Tensor) -> th.List[int]:
     """
     return perm_mat.argmax(dim=0).tolist()
 
-def turn_into_matrix(permutation: torch.IntTensor):
-    return (
-        torch.eye(permutation.shape[0])
-        .to(permutation.device)[permutation]
-        .to(permutation.device).T
+def listperm2matperm(
+    listperm: th.Union[torch.Tensor, th.List[int]], device=None, dtype=None
+):
+    """Converts a batch of permutations to its matricial form.
+    Args:
+      listperm: 2D tensor of permutations of shape [batch_size, n_objects] so that
+        listperm[n] is a permutation of range(n_objects).
+      device: device to place the output tensor on. (default: None)
+      dtype: dtype of the output tensor. (default: None)
+    Returns:
+      a 3D tensor of permutations matperm of
+        shape = [batch_size, n_objects, n_objects] so that matperm[n, :, :] is a
+        permutation of the identity matrix, with matperm[n, i, listperm[n,i]] = 1
+    """
+    listperm = (
+        torch.as_tensor(listperm, device=device)
+        if not isinstance(listperm, torch.Tensor)
+        else listperm.to(device=device)
     )
-
+    return torch.eye(listperm.shape[-1], device=device)[listperm.long()].to(
+        device=device, dtype=dtype
+    ).T
 
 @functools.wraps(torch.rand)
 def sample_gumbel_noise(*args, eps=1e-20, std=1, **kwargs):
@@ -181,30 +196,6 @@ def evaluate_permutations(
     return results
 
 
-def listperm2matperm(
-    listperm: th.Union[torch.Tensor, th.List[int]], device=None, dtype=None
-):
-    """Converts a batch of permutations to its matricial form.
-    Args:
-      listperm: 2D tensor of permutations of shape [batch_size, n_objects] so that
-        listperm[n] is a permutation of range(n_objects).
-      device: device to place the output tensor on. (default: None)
-      dtype: dtype of the output tensor. (default: None)
-    Returns:
-      a 3D tensor of permutations matperm of
-        shape = [batch_size, n_objects, n_objects] so that matperm[n, :, :] is a
-        permutation of the identity matrix, with matperm[n, i, listperm[n,i]] = 1
-    """
-    listperm = (
-        torch.as_tensor(listperm, device=device)
-        if not isinstance(listperm, torch.Tensor)
-        else listperm
-    )
-    return torch.eye(listperm.shape[-1], device=device)[listperm.long()].to(
-        device=device, dtype=dtype
-    ).T
-
-
 def hungarian(matrix_batch):
     """Solves a matching problem using the Hungarian algorithm.
 
@@ -235,7 +226,8 @@ def hungarian(matrix_batch):
         )
     sol = np.zeros((matrix_batch.shape[0], matrix_batch.shape[1]), dtype=np.int32)
     for i in range(matrix_batch.shape[0]):
-        sol[i, :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
+        res = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
+        sol[i, :] = np.argsort(res)
     return torch.from_numpy(sol).to(device).detach()
 
 def generate_permutations(n: int, num_samples: int = 1, return_matrix: bool = True):
@@ -261,5 +253,5 @@ def generate_permutations(n: int, num_samples: int = 1, return_matrix: bool = Tr
         num_unique = len(all_perms)
 
     if return_matrix:
-        return listperm2matperm(results)
+        return listperm2matperm(results, device="cpu")
     return results

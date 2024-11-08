@@ -11,7 +11,6 @@ from oslow.data.synthetic.utils import RandomGenerator
 from oslow.data.synthetic.parametric import AffineParametericDataset
 from oslow.models.normalization import ActNorm
 from oslow.training.trainer import Trainer
-from oslow.training.permutation_learning.buffered_methods import GumbelTopK
 from oslow.visualization.birkhoff import get_all_permutation_matrices
 from oslow.evaluation import backward_relative_penalty
 from oslow.training.permutation_learning.initialization import uniform_gamma_init_func

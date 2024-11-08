@@ -5,8 +5,7 @@ import torch
 from oslow.models.oslow import OSlow
 from functools import lru_cache
 from sklearn.decomposition import PCA
-from oslow.training.permutation_learning.baseline_methods import PermutationLearningModule
-from oslow.training.permutation_learning.buffered_methods import BufferedPermutationLearning
+from oslow.training.permutation_learning.methods import PermutationLearningModule
 import networkx as nx
 from oslow.evaluation import backward_relative_penalty
 from oslow.training.utils import matperm2listperm
@@ -105,12 +104,6 @@ def visualize_birkhoff_polytope(
             txt = "NA"
             lbl = get_label_from_permutation_matrix(permutation)
 
-            if isinstance(permutation_model, BufferedPermutationLearning):
-                idx = permutation_model._get_in_buffer_index(
-                    permutation.unsqueeze(0))[0].item()
-                if idx != -1:
-                    txt = f"*{permutation_model.permutation_buffer_scores[idx].item():.2f}"
-                # check if there is any matrix in my_buffer that is equal to permutation
             average_log_prob = 0.0
             if (closest_references == i).any():
                 close_samples = sampled_permutations[closest_references == i]

@@ -234,8 +234,7 @@ def gumbel_sinkhorn(log_alpha,
         log_alpha_w_noise_flat = torch.transpose(log_alpha_w_noise, 0, 1)
         log_alpha_w_noise_flat = log_alpha_w_noise_flat.view(-1, n, n)
         hard_perms_inf = matching(log_alpha_w_noise_flat)
-        inverse_hard_perms_inf = invert_listperm(hard_perms_inf)
-        sink_hard = listperm2matperm(hard_perms_inf).to(device).float()
+        sink_hard = listperm2matperm(hard_perms_inf, device=device).float()
         ret = (sink_hard - sink.detach() + sink, log_alpha_w_noise)
 
     return ret
@@ -277,20 +276,6 @@ def matperm2listperm(matperm):
     _, argmax = torch.max(matperm, dim=2, keepdim=True)
     argmax = argmax.view(batch_size, n_objects)
     return argmax
-
-
-def invert_listperm(listperm):
-    """Inverts a batch of permutations.
-    Args:
-    listperm: a 2D integer tensor of permutations listperm of
-      shape = [batch_size, n_objects] so that listperm[n] is a permutation of
-      range(n_objects)
-    Returns:
-    A 2D tensor of permutations listperm, where listperm[n,i]
-    is the index of the only non-zero entry in matperm[n, i, :]
-    """
-    return matperm2listperm(torch.transpose(listperm2matperm(listperm), 1, 2))
-
 
 def permute_batch_split(batch_split, permutations):
     """Scrambles a batch of objects according to permutations.

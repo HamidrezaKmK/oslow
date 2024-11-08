@@ -1,9 +1,0 @@
-
-method: contrastive-divergence
-num_samples: 32
-
-# for parent config
-permutation_batch_size: 8
-
-buffer_size: 32
-buffer_update: 32

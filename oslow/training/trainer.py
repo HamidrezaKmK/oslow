@@ -1,6 +1,6 @@
 import torch
 
-from .permutation_learning.baseline_methods import PermutationLearningModule
+from .permutation_learning.methods import PermutationLearningModule
 import numpy as np
 import wandb
 import matplotlib.pyplot as plt
@@ -13,7 +13,8 @@ from oslow.visualization.birkhoff import visualize_birkhoff_polytope
 from oslow.evaluation import backward_relative_penalty
 import os
 import logging
-
+from tqdm import tqdm
+from oslow.training.utils import matperm2listperm
 
 class Trainer:
     """
@@ -57,6 +58,7 @@ class Trainer:
         ],
         permutation_learning_module: Callable[[int], PermutationLearningModule],
         temperature: float,
+        num_perm_samples: int,
         temperature_scheduler: Literal['constant', 'linear', 'exponential'],
         device: str = "cpu",
         
@@ -65,6 +67,7 @@ class Trainer:
         birkhoff_plot_print_legend: bool = False,
         
         checkpointing: Optional[Union[str, os.PathLike]] = None,
+        
 
     ):
         """
@@ -110,6 +113,7 @@ class Trainer:
         self.device = device
         self.max_epochs = max_epochs
         self.model = model.to(device)
+        self.num_perm_samples = num_perm_samples
         
         # instantiate the permutation learning module for a number of given features
         self.permutation_learning_module = permutation_learning_module(
@@ -142,7 +146,9 @@ class Trainer:
         self.temperature_scheduler = temperature_scheduler
         self.perm_step_count = 0
         self.flow_step_count = 0
-
+        self.perm_learning_epochs = 0
+        self.flow_inner_epochs = 0
+        
         # TODO: add checkpointing
         self.checkpointing = None
     
@@ -172,7 +178,7 @@ class Trainer:
 
         permutation = self.permutation_learning_module.get_best(
             temperature=temperature)
-        permutation = permutation.argmax(dim=0).cpu().numpy().tolist()
+        permutation = matperm2listperm(permutation)
         backward_penalty = backward_relative_penalty(permutation, self.dag)
         wandb.log({"evaluation/best_backward_penalty": backward_penalty})
 
@@ -183,8 +189,7 @@ class Trainer:
             sampled_permutations, dim=0, return_counts=True)
         sm = 0
         for perm, c in zip(sampled_permutations_unique, counts):
-            backward_penalty = backward_relative_penalty(
-                perm.argmax(dim=0).cpu().numpy().tolist(), self.dag)
+            backward_penalty = backward_relative_penalty(matperm2listperm(perm), self.dag)
             sm += c * backward_penalty
         wandb.log(
             {"evaluation/avg_backward_penalty": sm/100}
@@ -212,18 +217,25 @@ class Trainer:
         )
 
     def learn_flow(self, epoch: int):
+        # reinitialize the model parameters
+        # self.model.reinitialize()
+
         for _ in range(self.flow_frequency):
             # freeze the parameters of the permutation learning module
             self.permutation_learning_module.freeze()
             avg_loss = []
+            wandb.log({f"flow_ensemble/epoch": self.flow_inner_epochs + 1})
+            self.flow_inner_epochs += 1
             for batch in self.flow_dataloader:
                 batch = batch.to(self.model.device)
                 self.flow_optimizer.zero_grad()
                 # perform a flow learning step by sampling permutations from the permutation learning module
                 # and using those to feed into the model
-                loss = self.permutation_learning_module.flow_learning_loss(
-                    model=self.model, batch=batch, temperature=self.get_temperature(epoch),
-                )
+                permutations = self.permutation_learning_module.sample_permutations(
+                    batch.shape[0], unique_and_resample=True, gumbel_std=self.get_temperature(epoch),
+                ).detach()
+                log_probs = self.model.log_prob(batch, perm_mat=permutations)
+                loss = -log_probs.mean()
                 loss.backward()
                 self.flow_optimizer.step()
                 self.flow_step_count += 1
@@ -240,57 +252,77 @@ class Trainer:
                 self.flow_scheduler.step(sum(avg_loss) / len(avg_loss))
             else:
                 self.flow_scheduler.step()
-
+    
     def learn_permutation(self, epoch: int):
-        for _ in range(self.permutation_frequency):
-            # stop gradient model
-            self.model.eval()
-            for param in self.model.parameters():
-                param.requires_grad = False
-            
-            avg_loss = []
+
+        # For permutation_frequency number of steps, train the permutation learning model
+        # by getting the loss and then performing a backward pass
+        
+
+        with torch.no_grad():
+            sampled_perms = self.permutation_learning_module.sample_permutations(
+                self.num_perm_samples,
+                gumbel_std=self.get_temperature(epoch), 
+            )
+            # unique the permutations
+            sampled_perms = torch.unique(sampled_perms, dim=0)
+            sampled_perms_repeated = torch.repeat_interleave(
+                sampled_perms, self.num_perm_samples, dim=0
+            )
+            avg_log_probs = torch.zeros(sampled_perms.shape[0], device=self.device)
+            cumul_batch_sizes = 0
+            previous_batch_size = None
             for batch in self.perm_dataloader:
-                batch = batch.to(self.model.device)
-                self.permutation_optimizer.zero_grad()
-                loss = self.permutation_learning_module.permutation_learning_loss(
-                    model=self.model, batch=batch, temperature=self.get_temperature(epoch)
-                )
-                loss.backward()
-                self.permutation_optimizer.step()
-                self.perm_step_count += 1
-                wandb.log({"permutation/step": self.perm_step_count})
-                wandb.log({"permutation/loss": loss.item()})
-                avg_loss.append(loss.item())
+                if previous_batch_size is None or previous_batch_size != batch.shape[0]:
+                    sampled_perms_repeated = torch.repeat_interleave(
+                        sampled_perms, batch.shape[0], dim=0
+                    )
+                    previous_batch_size = batch.shape[0]
                 
-            # return gradients for the model
-            for param in self.model.parameters():
-                param.requires_grad = True
-            self.model.train()
-            
+                # Get the log probabilities of the permutations
+                batch_extended = batch.repeat(sampled_perms.shape[0], 1).to(self.device)
+                log_probs = self.model.log_prob(
+                    batch_extended, perm_mat=sampled_perms_repeated
+                ).reshape(sampled_perms.shape[0], -1)
+
+                avg_log_probs = (cumul_batch_sizes * avg_log_probs + log_probs.sum(dim=1)) / (cumul_batch_sizes + batch.shape[0])
+                cumul_batch_sizes += batch.shape[0]
+        for _ in range(self.permutation_frequency):
+            dot_products = torch.einsum(
+                "bij,ij->b", 
+                sampled_perms, 
+                self.permutation_learning_module.gamma,
+            )
+            softmax_weights = torch.softmax(dot_products / (self.get_temperature(epoch) + 1e-3), dim=0)
+            loss = -torch.sum(softmax_weights * avg_log_probs)
+            loss.backward()
+            self.permutation_optimizer.step()
+            self.permutation_optimizer.zero_grad()
+            self.perm_step_count += 1
+            wandb.log({"permutation/step": self.perm_step_count})
+            wandb.log({"permutation/loss": loss.item()})
+
             if isinstance(
                 self.permutation_scheduler,
                 torch.optim.lr_scheduler.ReduceLROnPlateau,
             ):
-                self.permutation_scheduler.step(sum(avg_loss) / len(avg_loss))
+                self.permutation_scheduler.step(loss.item())
             else:
                 self.permutation_scheduler.step()
-
-    def final_phase(self):
-        # a final phase if applicable
-        # in the case of a standard trainer, there is no final phase
-        print("No final phase!")
     
     def train(self):
         self.model.train()
         self.permutation_learning_module.train()
 
-        for epoch in range(self.max_epochs):
+        pbar = tqdm(range(self.max_epochs))
+        for epoch in pbar:
             # reinsitialize the parameters of self.model
             self.model = self.model.to(self.device)
 
             wandb.log({"permutation/temperature": self.get_temperature(epoch)})
-            wandb.log({"epoch": epoch})
+            wandb.log({"total_epoch": epoch + 1})
             
+            pbar.set_description(f"Learning flow")
             # based on the permutation model, train a flow ensemble with Oslow
             self.learn_flow(epoch)
             
@@ -298,8 +330,10 @@ class Trainer:
             self.log_evaluation(temperature=self.get_temperature(epoch))
             
             # based on the likelihood model, optimize the permutations
+            pbar.set_description(f"Learning permutation")
             self.learn_permutation(epoch)
             
+            pbar.set_description(f"Logging")
             # log the Birkhoff polytope
             if (
                 self.model.in_features <= 4
@@ -315,6 +349,5 @@ class Trainer:
             if epoch == self.max_epochs - 1:
                 self.log_evaluation(temperature=0.0)
 
-        self.final_phase()
 
     

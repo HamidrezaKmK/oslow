@@ -3,9 +3,9 @@ num_samples: 50000
 graph_generator:
   _target_: oslow.data.synthetic.graph_generator.GraphGenerator
   graph_type: full
-  num_nodes: 4
+  num_nodes: 3
   seed: 42
-  enforce_ordering: [2, 3, 0, 1]
+  enforce_ordering: null
 noise_generator:
   _target_: oslow.data.synthetic.utils.RandomGenerator
   seed: ${..graph_generator.seed}

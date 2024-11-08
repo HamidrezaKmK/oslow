@@ -1,6 +1,6 @@
 defaults:
   - data: default
-  - model: specified
+  - model: affine_specified
   - trainer: ensemble
   - hydra: default
   - override hydra/hydra_logging: disabled

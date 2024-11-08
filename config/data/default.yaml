@@ -1,5 +1,5 @@
 _target_: oslow.data.synthetic.parametric.AffineParametericDataset
-num_samples: 10000
+num_samples: 50000
 graph_generator:
   _target_: oslow.data.synthetic.graph_generator.GraphGenerator
   graph_type: full

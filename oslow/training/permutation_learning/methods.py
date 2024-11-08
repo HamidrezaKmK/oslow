@@ -2,7 +2,7 @@ import torch
 import abc
 
 from oslow.models import OSlow
-from oslow.training.utils import sample_gumbel_noise, hungarian, turn_into_matrix
+from oslow.training.utils import sample_gumbel_noise, hungarian, listperm2matperm
 from typing import Optional, Literal, List, Callable
 from oslow.training.utils import sinkhorn as sinkhorn_operator
 
@@ -43,20 +43,6 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
         self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
     ) -> torch.Tensor:
         raise NotImplementedError
-
-    def flow_learning_loss(self, model: OSlow, batch: torch.Tensor, temperature: float = 1.0) -> torch.Tensor:
-        """
-        The loss function used for training the `model` (which is a normalizing flow model) with the current permutation module.
-        
-        In a nutshell, it generates a set of permutations (and then resamples to make it uniform) 
-        and uses the data in `batch` as input to the model to extract an estimate for the log probabilities of the permutations. 
-        The loss is then the negative of the mean of these log probabilities.
-        """
-        permutations = self.sample_permutations(
-            batch.shape[0], unique_and_resample=True, gumbel_std=temperature
-        ).detach()
-        log_probs = model.log_prob(batch, perm_mat=permutations)
-        return -log_probs.mean()
 
     def get_best(self, temperature: float = 1.0, num_samples: int = 100):
         """
@@ -115,7 +101,7 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
             # matching function is applied to obtain a permutation
             
             if self.fixed_perm is not None:
-                return turn_into_matrix(self.fixed_perm).unsqueeze(0).repeat(num_samples, 1, 1)
+                return listperm2matperm(self.fixed_perm, device=self.gamma.device).unsqueeze(0).repeat(num_samples, 1, 1)
             else:
                 permutations = hungarian(
                     self.gamma + gumbel_noise).to(self.gamma.device)
@@ -136,114 +122,10 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
                 )
             ]
         # turn permutations into permutation matrices
-        ret = torch.stack([turn_into_matrix(perm)
+        ret = torch.stack([listperm2matperm(perm, device=self.gamma.device)
                         for perm in permutations])
         # add some random noise to the permutation matrices
         if return_noises:
             return ret, gumbel_noise
         return ret
-        
-
-
-class SoftSort(PermutationLearningModule):
-    """
-    Based on https://proceedings.mlr.press/v119/prillo20a/prillo20a.pdf
-    titled "SoftSort: A Continuous Relaxation for the argsort Operator"
-    """
-    def __init__(
-            self,
-            in_features: int,
-            *args,
-            temp: float = 0.1,
-            **kwargs
-    ):
-        super().__init__(in_features=in_features, *args, **kwargs)
-        self.temp = temp
-        
-    def permutation_learning_loss(
-        self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
-    ) -> torch.Tensor:
-        permutations, gumbel_noise = self.sample_permutations(
-            batch.shape[0], return_noises=True, gumbel_std=temperature
-        )
-        scores = self.gamma + gumbel_noise
-        all_ones = torch.ones_like(scores)
-        scores_sorted = torch.sort(scores, dim=-1).values
-        logits = (
-            -(
-                (
-                    scores_sorted.unsqueeze(-1)
-                    @ all_ones.unsqueeze(-1).transpose(-1, -2)
-                    - all_ones.unsqueeze(-1) @ scores.unsqueeze(-1).transpose(-1, -2)
-                )
-                ** 2
-            )
-            / self.temp
-        )
-        # perform a softmax on the last dimension of logits
-        soft_permutations = torch.softmax(logits, dim=-1)
-        log_probs = model.log_prob(
-            batch,
-            perm_mat=(permutations - soft_permutations).detach() +
-            soft_permutations,
-        )
-        return -log_probs.mean()
-
-class SoftSinkhorn(PermutationLearningModule):
-    """
-    Directly feeds the output of the Sinkhorn operator to the flow model
-    """
-    def __init__(
-        self, in_features: int, *args, temp: float = 0.1, iters: int = 20, **kwargs
-    ):
-        super().__init__(in_features, *args, **kwargs)
-        self.temp = temp
-        self.iters = iters
-
-    def permutation_learning_loss(
-        self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
-    ) -> torch.Tensor:
-        _, gumbel_noise = self.sample_permutations(
-            batch.shape[0], return_noises=True, gumbel_std=temperature
-        )
-        soft_permutations = sinkhorn_operator(
-            self.gamma + gumbel_noise, iters=self.iters, temp=self.temp
-        )
-        log_probs = model.log_prob(batch, perm_mat=soft_permutations)
-        return -log_probs.mean()
-
-
-class GumbelSinkhornStraightThrough(PermutationLearningModule):
-    """
-    Uses the straight-through gradient estimator to backpropagate through the Sinkhorn operator
-    """
-    def __init__(
-        self,
-        in_features: int,
-        *args,
-        temp: float = 0.1,
-        iters: int = 20,
-        **kwargs,
-    ):
-        super().__init__(in_features, *args, **kwargs)
-        self.temp = temp
-        self.iters = iters
-
-    def permutation_learning_loss(
-        self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
-    ) -> torch.Tensor:
-        
-        permutations, gumbel_noise = self.sample_permutations(
-            batch.shape[0], return_noises=True, gumbel_std=temperature
-        )
-        
-        soft_permutations = sinkhorn_operator(
-            self.gamma + gumbel_noise, iters=self.iters, temp=self.temp
-        )
-        log_probs = model.log_prob(
-            batch,
-            perm_mat=(permutations - soft_permutations).detach() +
-            soft_permutations,
-        )
-        return -log_probs.mean()
-
+     

@@ -43,19 +43,13 @@ install_github("cran/CAM");
 ### Causal Discovery
 
 ```bash
-python train.py
+python train.py data=<dataset> model=<model>
 ```
 
-Run on linear Laplace with a model that has an appropriate latent noise:
+Run on linear Laplace:
 
 ```bash
-python train.py data=linear_laplace model=specified
-```
-
-Run on larger covariate size (default is 3 but you can change it to 4 with the following command):
-
-```bash
-python train.py data.graph_generator.num_nodes=4
+python train.py data=linear_laplace model=affine_specified
 ```
 
 ### Ensemble

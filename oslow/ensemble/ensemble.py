@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from tqdm import tqdm
 
-from oslow.training.utils import turn_into_matrix
+from oslow.training.utils import listperm2matperm
 
 from torch.utils.data import DataLoader
 from typing import Union, Callable, Iterable, Optional, Literal, List
@@ -64,7 +64,7 @@ class EnsembleTrainer:
             self.cbc_penalties.append(
                 backward_relative_penalty(perm=perm, dag=dag)
             )
-            self.perm_list.append(turn_into_matrix(torch.IntTensor(perm)))
+            self.perm_list.append(listperm2matperm(perm, device=device))
         self.perm_list = torch.stack(self.perm_list).to(device)
         self.nlls = []
 

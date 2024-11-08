@@ -1,7 +1,7 @@
 defaults:
   - data: default
-  - model: misspecified
-  - trainer: no_buffer_default
+  - model: affine_specified
+  - trainer: discovery
   - hydra: default
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
