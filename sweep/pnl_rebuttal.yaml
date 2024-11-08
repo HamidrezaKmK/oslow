@@ -7,7 +7,7 @@ metric:
   name: permutation/best_backward_penalty
 parameters:
   data:
-    values: ["pnl_sigmoid_sinusoid", "pnl_sinusoid_softplus"]
+    values: ["pnl_sigmoid_sinusoid"] #["pnl_sigmoid_sinusoid", "pnl_sinusoid_softplus"]
 
   data.graph_generator.num_nodes:
     values: [3, 4, 5]
