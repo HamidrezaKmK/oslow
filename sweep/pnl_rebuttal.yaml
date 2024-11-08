@@ -1,0 +1,26 @@
+---
+program: train.py
+name: pnl_rebuttal
+method: grid
+metric:
+  goal: minimize
+  name: permutation/best_backward_penalty
+parameters:
+  data:
+    values: ["pnl_sigmoid_sinusoid", "pnl_sinusoid_softplus"]
+
+  data.graph_generator.num_nodes:
+    values: [3, 4, 5]
+
+  data.graph_generator.seed:
+    values: [42, 712, 8374]
+
+command:
+  - ${env}
+  - python
+  - train.py
+  - ${args_no_hyphens}
+  - model=pnl_specified
+  - test_run=false
+  - data.graph_generator.graph_type=erdos_renyi
+  - +data.graph_generator.p=0.4
