@@ -1,0 +1,25 @@
+_target_: oslow.data.synthetic.parametric.AffineParametericDataset
+num_samples: 10000
+graph_generator:
+  _target_: oslow.data.synthetic.graph_generator.GraphGenerator
+  graph_type: full
+  num_nodes: 4
+  seed: 42
+  enforce_ordering: [0,1,2,3]
+noise_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: ${..graph_generator.seed}
+  noise_type: normal  # Possible options: "normal", "uniform", "laplace". Laplace for linear
+  loc: 0
+  scale: 1
+link_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: ${..graph_generator.seed}
+  noise_type: uniform
+  low: 1
+  high: 2
+link: sigmoid  # Possible options: "sinusoid", "cubic", "linear", "square", "absolute", "sigmoid"
+perform_normalization: true
+additive: true
+post_non_linear_transform: x_plus_sin # Possible options: "exp", "softplus", "x_plus_sin", "nonparametric", "sigmoid", "tanh", "spline"
+standard: false # very important to set this to true for model ensemble to work better
