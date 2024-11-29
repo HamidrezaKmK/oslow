@@ -1,0 +1,27 @@
+defaults:
+  - data: default
+  - model: affine_specified
+  - trainer: discovery
+  - hydra: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - override hydra/sweeper: basic
+  - _self_
+
+hydra:
+  sweeper:
+    params:
+      data: default,linear_laplace,nonparametric,pnl_sigmoid_sinusoid,pnl_sinusoid_softplus,sachs,synthetic_sinusoid,syntren
+  job:
+    chdir: true
+
+wandb:
+  run_name: null
+  project: order_discovery
+  group: causal_discovery_sweep
+
+flow_batch_size: ${eval:'64 if ${data.graph_generator.num_nodes} >= 5 else 128'}
+permutation_batch_size: ${eval:'32 if ${data.graph_generator.num_nodes} >= 5 else 64'}
+
+test_run: false
+out_dir: runs/
