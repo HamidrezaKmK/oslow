@@ -86,6 +86,7 @@ def setup_experiment_config(cfg: DictConfig, graph_size: int,
     cfg = OmegaConf.create(OmegaConf.to_yaml(cfg))
     
     # Set up graph generator config
+    cfg.data.num_samples = link_function['num_samples']
     cfg.data.graph_generator.num_nodes = graph_size
     cfg.data.graph_generator.graph_type = structure['type']
     cfg.data.graph_generator.seed = seed
@@ -118,7 +119,8 @@ def setup_experiment_config(cfg: DictConfig, graph_size: int,
     # Generate unique experiment name
     exp_name = f"{variant['name']}_{link_function['name']}_{structure['name']}_d{graph_size}_{noise['type']}_s{seed}"
     cfg.wandb.run_name = exp_name
-    cfg.wandb.group = f"{variant['name']}_{link_function['name']}_{structure['name']}_d{graph_size}"
+    cfg.wandb.group = f"{variant['name']}_{link_function['name']}_{structure['name']}_d{graph_size}_{noise['type']}"
+    cfg.wandb.tags = [variant['name'], link_function['name'], structure['name'], f"d{graph_size}", noise['type'], str(link_function['num_samples'])]
     
     return cfg
 
@@ -139,6 +141,7 @@ def run_single_experiment(cfg: DictConfig):
         config=OmegaConf.to_container(cfg, resolve=True),
         name=cfg.wandb.run_name,
         group=cfg.wandb.group,
+        tags=cfg.wandb.tags,
         id=cfg.wandb.run_id,
         resume="allow" if cfg.wandb.resume else False,
         settings=wandb.Settings(start_method="thread"),

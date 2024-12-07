@@ -1,0 +1,22 @@
+_target_: oslow.data.synthetic.nonparametric.AffineNonParametericDataset
+num_samples: 6000
+graph_generator:
+  _target_: oslow.data.synthetic.graph_generator.GraphGenerator
+  graph_type: full  # can be random (erdos_renyi), full (tournament), or chain (path)
+  num_nodes: 3  # 3, 4, 5, 6
+  seed: 42
+  enforce_ordering: null
+noise_generator:
+  _target_: oslow.data.synthetic.utils.RandomGenerator
+  seed: 42
+  noise_type: normal
+  loc: 0
+  scale: 1
+s_rbf_kernel_gamma: 1.0
+t_rbf_kernel_gamma: 1.0
+invertibility_coefficient: 0.0   # does not work with 1.0
+perform_normalization: true
+additive: false
+post_non_linear_transform: null
+seed: 42
+standard: true # very important to set this to true for model ensemble to work better
