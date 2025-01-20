@@ -59,7 +59,7 @@ class Trainer:
         permutation_learning_module: Callable[[int], PermutationLearningModule],
         temperature: float,
         num_perm_samples: int,
-        temperature_scheduler: Literal['constant', 'linear', 'exponential'],
+        temperature_scheduler: Literal['constant', 'linear', 'exponential', 'sigmoid',],
         device: str = "cpu",
         
         birkhoff_plot_frequency: Optional[int] = None,
@@ -151,8 +151,17 @@ class Trainer:
         
         # TODO: add checkpointing
         self.checkpointing = None
+        
+        self.total_steps = self._calculate_total_steps()
+        self.current_step = 0
     
-    def get_temperature(self, epoch: int):
+    def _calculate_total_steps(self) -> int:
+        """Calculate total number of steps across all epochs"""
+        flow_steps_per_epoch = len(self.flow_dataloader) * self.flow_frequency
+        perm_steps_per_epoch = len(self.perm_dataloader) * self.permutation_frequency
+        return (flow_steps_per_epoch + perm_steps_per_epoch) * self.max_epochs
+    
+    def get_temperature(self):
         """
         Returns the temperature based on the temperature scheduler
         
@@ -161,11 +170,22 @@ class Trainer:
         """
         if self.temperature_scheduler == "constant":
             return self.initial_temperature
-        # start from initial_temperature and decrease it to 0
+        
+        progress = self.current_step / self.total_steps
+        
         if self.temperature_scheduler == "linear":
-            return self.initial_temperature * (1 - (0 if epoch == 0 else epoch / (self.max_epochs - 1)))
-        if self.temperature_scheduler == "exponential":
-            return self.initial_temperature * (0.1 ** (0 if epoch == 0 else epoch / (self.max_epochs - 1)))
+            return self.initial_temperature * (1 - progress)
+        elif self.temperature_scheduler == "exponential":
+            return self.initial_temperature * (0.1 ** progress)
+        elif self.temperature_scheduler == "sigmoid":
+            # Shift sigmoid to spend more time at lower temps
+            midpoint = 0.3  # Earlier transition point
+            steepness = 1  # increase to 2 or 5 or 1 for a sharper transition 
+            x = (progress - midpoint) * steepness
+            decay = 1 / (1 + np.exp(x))
+            return self.initial_temperature * decay
+        else:
+            raise ValueError(f"Unknown temperature scheduler: {self.temperature_scheduler}")
 
     def log_evaluation(self, temperature: float = 1.0):
         """
@@ -175,7 +195,9 @@ class Trainer:
         DAG to see that for each permutation, how many backward edges are there.
         Finally, it logs onto wandb the average number of backward edges.
         """
-
+        if temperature is None:
+            temperature = self.get_temperature()
+            
         permutation = self.permutation_learning_module.get_best(
             temperature=temperature)
         permutation = matperm2listperm(permutation)
@@ -206,7 +228,7 @@ class Trainer:
             device=self.device,
             print_legend=self.birkhoff_plot_legend,
             dag=self.dag,
-            temperature=self.get_temperature(epoch),
+            temperature=self.get_temperature(), # NOTE: temperature is annealed over steps instead of epochs
         )
         wandb.log(
             {
@@ -226,19 +248,30 @@ class Trainer:
             avg_loss = []
             wandb.log({f"flow_ensemble/epoch": self.flow_inner_epochs + 1})
             self.flow_inner_epochs += 1
+            
             for batch in self.flow_dataloader:
                 batch = batch.to(self.model.device)
                 self.flow_optimizer.zero_grad()
                 # perform a flow learning step by sampling permutations from the permutation learning module
                 # and using those to feed into the model
                 permutations = self.permutation_learning_module.sample_permutations(
-                    batch.shape[0], unique_and_resample=True, gumbel_std=self.get_temperature(epoch),
+                    batch.shape[0], 
+                    unique_and_resample=True, 
+                    gumbel_std=self.get_temperature(),  # temperature annealed over steps instead of epochs
                 ).detach()
                 log_probs = self.model.log_prob(batch, perm_mat=permutations)
                 loss = -log_probs.mean()
                 loss.backward()
                 self.flow_optimizer.step()
+                
                 self.flow_step_count += 1
+                self.current_step += 1      # for step-based temperature annealing
+                
+                wandb.log({
+                    "flow_ensemble/step": self.flow_step_count,
+                    "flow_ensemble/loss": loss.item(),
+                    "flow_ensemble/temperature": self.get_temperature() 
+                })
                 wandb.log({f"flow_ensemble/step": self.flow_step_count})
                 wandb.log({f"flow_ensemble/loss": loss.item()})
                 avg_loss.append(loss.item())
@@ -254,15 +287,13 @@ class Trainer:
                 self.flow_scheduler.step()
     
     def learn_permutation(self, epoch: int):
-
         # For permutation_frequency number of steps, train the permutation learning model
         # by getting the loss and then performing a backward pass
-        
-
+        curr_temp = self.get_temperature()
         with torch.no_grad():
             sampled_perms = self.permutation_learning_module.sample_permutations(
                 self.num_perm_samples,
-                gumbel_std=self.get_temperature(epoch), 
+                gumbel_std=curr_temp, 
             )
             # unique the permutations
             sampled_perms = torch.unique(sampled_perms, dim=0)
@@ -287,20 +318,27 @@ class Trainer:
 
                 avg_log_probs = (cumul_batch_sizes * avg_log_probs + log_probs.sum(dim=1)) / (cumul_batch_sizes + batch.shape[0])
                 cumul_batch_sizes += batch.shape[0]
+                
         for _ in range(self.permutation_frequency):
             dot_products = torch.einsum(
                 "bij,ij->b", 
                 sampled_perms, 
                 self.permutation_learning_module.gamma,
             )
-            softmax_weights = torch.softmax(dot_products / (self.get_temperature(epoch) + 1e-3), dim=0)
+            softmax_weights = torch.softmax(dot_products / (curr_temp + 1e-3), dim=0)
             loss = -torch.sum(softmax_weights * avg_log_probs)
             loss.backward()
             self.permutation_optimizer.step()
             self.permutation_optimizer.zero_grad()
+            
             self.perm_step_count += 1
-            wandb.log({"permutation/step": self.perm_step_count})
-            wandb.log({"permutation/loss": loss.item()})
+            self.current_step += len(self.perm_dataloader)
+            
+            wandb.log({
+                "permutation/step": self.perm_step_count,
+                "permutation/loss": loss.item(),
+                "temperature": self.get_temperature()
+            })
 
             if isinstance(
                 self.permutation_scheduler,
@@ -319,7 +357,7 @@ class Trainer:
             # reinsitialize the parameters of self.model
             self.model = self.model.to(self.device)
 
-            wandb.log({"permutation/temperature": self.get_temperature(epoch)})
+            wandb.log({"permutation/temperature": self.get_temperature()})
             wandb.log({"total_epoch": epoch + 1})
             
             pbar.set_description(f"Learning flow")
@@ -327,7 +365,7 @@ class Trainer:
             self.learn_flow(epoch)
             
             # log the evaluation metrics
-            self.log_evaluation(temperature=self.get_temperature(epoch))
+            self.log_evaluation()   # get_temperature is now inside the log evaluation
             
             # based on the likelihood model, optimize the permutations
             pbar.set_description(f"Learning permutation")
@@ -347,7 +385,7 @@ class Trainer:
                 self.log_polytope(epoch)
 
             if epoch == self.max_epochs - 1:
-                self.log_evaluation(temperature=0.0)
+                self.log_evaluation()  # get_temperature is now inside the log evaluation
 
 
     
