@@ -18,5 +18,4 @@ invertibility_coefficient: 0.0  # does not work with 1.0
 perform_normalization: true
 additive: true
 post_non_linear_transform: null
-seed: 42
 standard: true # very important to set this to true for model ensemble to work better
