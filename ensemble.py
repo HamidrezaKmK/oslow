@@ -45,16 +45,18 @@ OmegaConf.register_new_resolver(
 OmegaConf.register_new_resolver("get_permutations", get_permutations)
 
 
-def init_run_dir(conf):
+def init_run_dir(conf, base_name=None):
     # Handle preemption and resume
     run_name = str(conf.wandb.run_name)
     resume = True
     r = RandomWords()
     w1, w2 = r.get_random_word(), r.get_random_word()
-    if run_name is None:
-        run_name = f"{w1}_{w2}"
+    if conf.wandb.run_name is not None:
+        run_name = str(conf.wandb.run_name) + base_name
     else:
-        run_name += f"_{w1}_{w2}"
+        run_name = base_name
+    
+    run_name += f"_{w1}_{w2}"
 
     out_dir = os.path.join(conf.out_dir, run_name)
 
@@ -80,11 +82,21 @@ def init_run_dir(conf):
 
 @hydra.main(version_base=None, config_path="config", config_name="ensemble")
 def main(conf):
+    model_type = "additive" if conf.data.additive else "affine"
+    num_nodes = conf.data.graph_generator.num_nodes
+    graph_type = conf.data.graph_generator.graph_type
+    noise_type = conf.data.noise_generator.noise_type
+    if "link" in conf.data:
+        link_function = conf.data.link
+        run_name = f"{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
+    else:
+        run_name = f"nonparametric_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
+
     conf = hydra.utils.instantiate(conf)
     if conf.test_run:
         pprint(OmegaConf.to_container(conf, resolve=True))
     else:
-        conf = init_run_dir(conf)
+        conf = init_run_dir(conf, run_name)
         wandb.init(
             dir=conf.out_dir,
             project=conf.wandb.project,
