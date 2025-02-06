@@ -128,4 +128,66 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
         if return_noises:
             return ret, gumbel_noise
         return ret
-     
+
+
+class ThompsonPlackettLuce(PermutationLearningModule):
+    def __init__(
+        self, 
+        in_features: int, 
+        initialization_function: Callable[[int], torch.Tensor],
+        prior_std: float = 1.0,
+        **kwargs
+    ):
+        super().__init__(in_features, initialization_function)
+        # Variational parameters: mean and log variance
+        self.gamma_mean = torch.nn.Parameter(initialization_function(in_features))
+        self.gamma_logvar = torch.nn.Parameter(torch.zeros(in_features))
+        self.prior_std = prior_std  # Prior standard deviation
+        
+    def sample_gamma(self):
+        # Reparameterization trick
+        epsilon = torch.randn_like(self.gamma_mean)
+        return self.gamma_mean + epsilon * torch.exp(0.5 * self.gamma_logvar)
+    
+    def sample_permutations(
+        self, 
+        num_samples: int, 
+        unique_and_resample: bool = False, 
+        **kwargs
+    ) -> torch.Tensor:
+        # Sample scores from variational posterior
+        gamma = self.sample_gamma()
+        
+        # Generate permutations via Plackett-Luce
+        permutations = []
+        for _ in range(num_samples):
+            remaining = list(range(self.in_features))
+            perm = []
+            for _ in range(self.in_features):
+                scores = gamma[remaining]
+                probs = torch.softmax(scores, dim=0)
+                chosen = torch.multinomial(probs, 1).item()
+                perm.append(remaining[chosen])
+                remaining.pop(chosen)
+            permutations.append(perm)
+        
+        return torch.IntTensor(permutations)
+    
+    def permutation_learning_loss(
+        self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
+    ) -> torch.Tensor:
+        # Sample permutations using Thompson Sampling
+        permutations = self.sample_permutations(batch.shape[0])
+        
+        # Compute log probabilities of permutations
+        log_probs = model.log_prob(batch, perm_mat=permutations)
+        
+        # KL divergence between variational posterior and prior
+        kl_div = -0.5 * torch.sum(
+            1 + self.gamma_logvar - (self.gamma_mean ** 2) / self.prior_std ** 2 - torch.exp(self.gamma_logvar)
+        )
+        
+        # ELBO loss
+        elbo_loss = -log_probs.mean() + kl_div / batch.shape[0]
+        
+        return elbo_loss

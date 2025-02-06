@@ -1,7 +1,7 @@
 defaults:
   - data: default
   - model: affine_specified
-  - trainer: discovery
+  - trainer: Thompson_disc
   - hydra: default
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled

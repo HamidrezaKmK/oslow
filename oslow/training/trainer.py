@@ -209,7 +209,7 @@ class Trainer:
         DAG to see that for each permutation, how many backward edges are there.
         Finally, it logs onto wandb the average number of backward edges.
         """
-        best_backward_penalty = get_best_backward_penalty(temperature)
+        best_backward_penalty = self.get_best_backward_penalty(temperature)
         wandb.log({"evaluation/best_backward_penalty": best_backward_penalty})
 
         sampled_permutations = self.permutation_learning_module.sample_permutations(
