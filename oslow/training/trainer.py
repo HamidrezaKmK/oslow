@@ -180,12 +180,26 @@ class Trainer:
         elif self.temperature_scheduler == "sigmoid":
             # Shift sigmoid to spend more time at lower temps
             midpoint = 0.3  # Earlier transition point
-            steepness = 1  # increase to 2 or 5 or 1 for a sharper transition 
+            steepness = 5  # increase to 2 or 5 or 10 for a sharper transition 
             x = (progress - midpoint) * steepness
             decay = 1 / (1 + np.exp(x))
             return self.initial_temperature * decay
         else:
             raise ValueError(f"Unknown temperature scheduler: {self.temperature_scheduler}")
+    
+    def get_best_backward_penalty(self, temperature: float = None) -> float:
+        """Returns the backward penalty for the best permutation found so far.
+        """
+        if temperature is None:
+            temperature = self.get_temperature()
+            
+        permutation = self.permutation_learning_module.get_best(
+            temperature=temperature
+        )
+        
+        permutation_list = matperm2listperm(permutation)
+        
+        return backward_relative_penalty(permutation_list, self.dag)
 
     def log_evaluation(self, temperature: float = 1.0):
         """
@@ -195,14 +209,8 @@ class Trainer:
         DAG to see that for each permutation, how many backward edges are there.
         Finally, it logs onto wandb the average number of backward edges.
         """
-        if temperature is None:
-            temperature = self.get_temperature()
-            
-        permutation = self.permutation_learning_module.get_best(
-            temperature=temperature)
-        permutation = matperm2listperm(permutation)
-        backward_penalty = backward_relative_penalty(permutation, self.dag)
-        wandb.log({"evaluation/best_backward_penalty": backward_penalty})
+        best_backward_penalty = get_best_backward_penalty(temperature)
+        wandb.log({"evaluation/best_backward_penalty": best_backward_penalty})
 
         sampled_permutations = self.permutation_learning_module.sample_permutations(
             100, gumbel_std=temperature
