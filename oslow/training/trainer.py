@@ -119,6 +119,8 @@ class Trainer:
         self.permutation_learning_module = permutation_learning_module(
             model.in_features
         ).to(device)
+        # cache the best permutation scores
+        self.permutation_scores = {}
         
         self.flow_dataloader = flow_dataloader
         self.perm_dataloader = perm_dataloader
@@ -294,7 +296,7 @@ class Trainer:
             else:
                 self.flow_scheduler.step()
     
-    def learn_permutation(self, epoch: int):
+    def learn_permutation(self, epoch: int, use_cached_scores: bool = True):
         # For permutation_frequency number of steps, train the permutation learning model
         # by getting the loss and then performing a backward pass
         curr_temp = self.get_temperature()
@@ -326,6 +328,25 @@ class Trainer:
 
                 avg_log_probs = (cumul_batch_sizes * avg_log_probs + log_probs.sum(dim=1)) / (cumul_batch_sizes + batch.shape[0])
                 cumul_batch_sizes += batch.shape[0]
+                
+                if use_cached_scores:
+                # Cache the best permutation scores
+                    for i, perm in enumerate(sampled_perms):
+                        perm_list = matperm2listperm(perm)
+                        perm_key = "".join(map(str, perm_list))
+                        current_score = avg_log_probs[i].item()
+                        best_score = self.permutation_scores.get(perm_key, -float("inf"))
+                        if current_score > best_score:
+                            self.permutation_scores[perm_key] = current_score
+
+                        # Use cached scores for loss calculation
+                        cached_scores = torch.tensor([
+                            self.permutation_scores["".join(map(str, matperm2listperm(perm)))]
+                            for perm in sampled_perms
+                        ], device=self.device)
+
+                        # Replace original avg_log_probs with cached values
+                        avg_log_probs = cached_scores
                 
         for _ in range(self.permutation_frequency):
             dot_products = torch.einsum(
