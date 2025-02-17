@@ -1,0 +1,23 @@
+_target_: oslow.plackett_luce.PlackettLuceTrainer
+_partial_: true
+device: cuda
+
+
+max_epochs: 100
+
+flow_optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.0001
+  _partial_: true
+
+
+permutation_optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.001
+  _partial_: true
+
+perm_expectation_b_size: 8
+
+flow_lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true

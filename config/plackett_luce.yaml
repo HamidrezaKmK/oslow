@@ -1,0 +1,17 @@
+defaults:
+  - data: default
+  - model: affine_specified
+  - trainer: plackett_luce
+  - hydra: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - _self_
+
+wandb:
+  run_name: plackett_luce_
+  project: plackett_luce
+
+flow_batch_size: 32
+
+test_run: false
+out_dir: runs/
