@@ -11,7 +11,7 @@ wandb:
   run_name: plackett_luce_
   project: plackett_luce
 
-flow_batch_size: 32
+batch_size: 64
 
 test_run: false
 out_dir: runs/

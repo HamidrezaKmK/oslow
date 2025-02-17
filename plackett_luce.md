@@ -23,7 +23,8 @@ $$
 \begin{aligned}
 \nabla_{\theta} \log P(\mathcal{D};\theta; \boldsymbol{s}) &= \sum_{i=1}^N \nabla_{\theta} \log P(X^{(i)}_1, \ldots, X^{(i)}_d;\theta; \boldsymbol{s})\\
  &= \sum_{i=1}^N \nabla_{\theta} \log \mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[P(X^{(i)}_1, \ldots, X^{(i)}_d;\theta; \boldsymbol{\sigma})\right]\\
- & =\sum_{i=1}^N \log \mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[\nabla_{\theta} \exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right]
+ & =\sum_{i=1}^N \frac{\mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[\nabla_{\theta} \exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right]}{\mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[ \exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right]} \\
+  & =\sum_{i=1}^N \frac{\mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[\nabla_{\theta} f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \cdot \exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right]}{\mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[ \exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right]}
 \end{aligned}
 $$
 
@@ -48,3 +49,12 @@ $$
 & =  \mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[\nabla_{\boldsymbol{s}} \log P_{Placket-Luce}(\boldsymbol{\sigma}; \boldsymbol{s}) \cdot \exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right]
 \end{aligned}
 $$
+
+Therefore, if we define our loss function as following:
+$$
+\begin{aligned}
+\ell(\theta, \boldsymbol{s}) = \frac{1}{N}\sum_{i=1}^N \frac{\mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[ \left(\log P_{Placket-Luce}(\boldsymbol{\sigma};\boldsymbol{s}) + f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right)\right) \cdot sg\left(\exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right)\right]}{\mathbb{E}_{\boldsymbol{\sigma} \sim P_{Placket-Luce}(\cdot; \boldsymbol{s})} \left[ sg \left(\exp \left\{ f_\theta\left(X^{(i)}_1, \ldots, X^{(i)}_d; \boldsymbol{\sigma}\right) \right\}\right)\right]}
+\end{aligned}
+$$
+
+where $sg$ means stop-gradient.

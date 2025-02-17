@@ -105,18 +105,14 @@ def main(conf):
             # compatible with hydra
             settings=wandb.Settings(start_method="thread"),
         )
-        wandb.define_metric("flow/step")
-        wandb.define_metric("permutation/step")
-        wandb.define_metric("flow/*", step_metric="flow/step")
-        wandb.define_metric("permutation/*", step_metric="permutation/step")
         dset = conf.data
-        flow_dloader = torch.utils.data.DataLoader(dset, batch_size=conf.flow_batch_size, shuffle=True)
+        dloader = torch.utils.data.DataLoader(dset, batch_size=conf.batch_size, shuffle=True)
         model = conf.model
 
         trainer = conf.trainer(
             model=model,
             dag=dset.dag,
-            flow_dataloader=flow_dloader,
+            dataloader=dloader,
         )
         trainer.run()
 
