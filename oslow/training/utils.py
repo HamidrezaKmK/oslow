@@ -2,6 +2,7 @@ import torch
 import typing as th
 import numpy as np
 import functools
+import random
 
 # most of the codes are humbly borrowed/adapted from
 # https://github.com/sharpenb/Differentiable-DAG-Sampling/tree/44f96769a729efc99bdd16c9b00deee4077a76b2
@@ -242,3 +243,16 @@ def generate_permutations(n: int, num_samples: int = 1, return_matrix: bool = Tr
     if return_matrix:
         return listperm2matperm(results, device="cpu")
     return results
+
+
+
+def seed_everything(seed: int):
+    """Seed everything for reproducibility."""
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+    # torch.use_deterministic_algorithms(True)
+    # torch.set_deterministic(True)
+    torch.cuda.manual_seed_all(seed)
