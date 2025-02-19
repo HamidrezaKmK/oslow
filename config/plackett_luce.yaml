@@ -1,17 +1,56 @@
 defaults:
   - data: default
   - model: affine_specified
-  - trainer: plackett_luce
   - hydra: default
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
   - _self_
 
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 0.0001
+  _partial_: true
+
+batch_size: 128
+perm_expectation_b_size: 32
+max_epochs: 1000
+
+
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true
+
+device: cuda
+reinforce_baseline: zero
+
+restart_flow: false
+
+flow_learning_iters: -1
+perm_learning_iters: -1
+
+perm_optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.001
+  _partial_: true
+
+perm_lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true
+
+normalize_scores: true
+
+sampling: exponential_race
+
+coeff_scheduling_strategy:
+  _target_: __main__.DWAMultiTaskStrategy
+  num_tasks: 2
+  temperature: 1.0
+
+
+
 wandb:
   run_name: plackett_luce_
   project: plackett_luce
-
-batch_size: 64
 
 test_run: false
 out_dir: runs/

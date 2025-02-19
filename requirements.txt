@@ -1,0 +1,17 @@
+numpy
+pandas
+tqdm
+matplotlib==3.9.0
+seaborn
+networkx
+wandb
+random-word
+pydantic
+scikit-learn
+hydra-core
+cdt
+igraph
+causal-learn
+torch --index-url https://download.pytorch.org/whl/cu121
+torchvision --index-url https://download.pytorch.org/whl/cu121
+torchaudio --index-url https://download.pytorch.org/whl/cu121
