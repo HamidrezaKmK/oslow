@@ -13,7 +13,7 @@ from typing import Callable, Iterable, Literal, List
 from tqdm import tqdm
 
 from oslow.models.oslow import OSlow
-from oslow.training.utils import listperm2matperm
+from oslow.training.utils import listperm2matperm, seed_everything
 from oslow.evaluation import backward_relative_penalty
 from oslow.data import OCDDataset
 
@@ -376,8 +376,12 @@ def init_run_dir(conf, base_name=None):
     return conf
 
 
+# TODO make the run faster by not having different permutations for each sample
+
+
 @hydra.main(version_base=None, config_path="config", config_name="plackett_luce")
 def main(conf):
+    seed_everything(conf.seed)
     model_type = "additive" if conf.data.additive else "affine"
     num_nodes = conf.data.graph_generator.num_nodes
     graph_type = conf.data.graph_generator.graph_type
