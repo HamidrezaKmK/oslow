@@ -59,7 +59,9 @@ def listperm2matperm(listperm: th.Union[torch.Tensor, th.List[int]], device=None
         if not isinstance(listperm, torch.Tensor)
         else listperm.to(device=device)
     )
-    return torch.eye(listperm.shape[-1], device=device)[listperm.long()].to(device=device, dtype=dtype)
+    return (
+        torch.eye(listperm.shape[-1], device=device)[listperm.long()].to(device=device, dtype=dtype).transpose(-1, -2)
+    )
 
 
 @functools.wraps(torch.rand)
