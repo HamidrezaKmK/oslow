@@ -330,23 +330,26 @@ class Trainer:
                 cumul_batch_sizes += batch.shape[0]
                 
                 if use_cached_scores:
-                # Cache the best permutation scores
+                    # Cache the best permutation scores
                     for i, perm in enumerate(sampled_perms):
                         perm_list = matperm2listperm(perm)
                         perm_key = "".join(map(str, perm_list))
                         current_score = avg_log_probs[i].item()
-                        best_score = self.permutation_scores.get(perm_key, -float("inf"))
+                        # Initialize with current score if missing
+                        if perm_key not in self.permutation_scores:
+                            self.permutation_scores[perm_key] = -float("inf")
+                        best_score = self.permutation_scores[perm_key]
                         if current_score > best_score:
                             self.permutation_scores[perm_key] = current_score
 
-                        # Use cached scores for loss calculation
-                        cached_scores = torch.tensor([
-                            self.permutation_scores["".join(map(str, matperm2listperm(perm)))]
-                            for perm in sampled_perms
-                        ], device=self.device)
+                    # Use cached scores for loss calculation with default value
+                    cached_scores = torch.tensor([
+                        self.permutation_scores.get("".join(map(str, matperm2listperm(perm))), -float("inf"))
+                        for perm in sampled_perms
+                    ], device=self.device)
 
-                        # Replace original avg_log_probs with cached values
-                        avg_log_probs = cached_scores
+                    # Replace original avg_log_probs with cached values
+                    avg_log_probs = cached_scores
                 
         for _ in range(self.permutation_frequency):
             dot_products = torch.einsum(
