@@ -5,68 +5,16 @@ import torch
 
 import networkx as nx
 
-from abc import ABC, abstractmethod
 from omegaconf import OmegaConf
 from pprint import pprint
 from random_word import RandomWords
-from typing import Callable, Iterable, Literal, List
+from typing import Callable, Iterable, Literal
 from tqdm import tqdm
 
 from oslow.models.oslow import OSlow
 from oslow.training.utils import listperm2matperm, seed_everything
 from oslow.evaluation import backward_relative_penalty
 from oslow.data import OCDDataset
-
-
-class MultiTaskCoeffStrategy(ABC):
-    def __init__(self, num_tasks: int):
-        self.num_tasks = num_tasks
-
-    @abstractmethod
-    def __call__(self, iter: int, *args, **kwargs) -> List[float]:
-        pass
-
-
-class DWAMultiTaskStrategy(MultiTaskCoeffStrategy):
-    """
-    Dynamic Weight Average (DWA) from https://arxiv.org/pdf/1803.10704
-    """
-
-    def __init__(self, num_tasks: int, temperature: float):
-        super().__init__(num_tasks)
-        self.temperature = temperature
-        self.loss_t_minus_1 = None
-        self.loss_t_minus_2 = None
-
-    def __call__(self, iter: int, losses: torch.Tensor | None = None):
-        if losses is None:
-            return [1.0 for _ in range(self.num_tasks)]
-
-        if self.loss_t_minus_1 is None:
-            self.loss_t_minus_1 = losses.detach()
-
-        if self.loss_t_minus_2 is None:
-            self.loss_t_minus_2 = losses.detach()
-
-        weights = torch.exp(self.loss_t_minus_1) / torch.exp(self.loss_t_minus_2)
-        self.loss_t_minus_2 = self.loss_t_minus_1
-        self.loss_t_minus_1 = losses.detach()
-        exp_weights_temp = torch.exp(weights / self.temperature)
-
-        min_val = torch.nan_to_num(exp_weights_temp, nan=float("inf")).min()
-        exp_weights_temp = exp_weights_temp.nan_to_num(min_val)
-        lambdas = exp_weights_temp / exp_weights_temp.sum() * self.num_tasks
-
-        return lambdas.tolist()
-
-
-class ConstantStrategy(MultiTaskCoeffStrategy):
-    def __init__(self, num_tasks: int, value: float):
-        super().__init__(num_tasks=num_tasks)
-        self.value = value
-
-    def __call__(self, iter: int, *args, **kwargs) -> List[float]:
-        return [self.value for _ in range(self.num_tasks)]
 
 
 @torch.no_grad()
@@ -109,34 +57,35 @@ class PlackettLuceTrainer:
         self,
         model: OSlow,
         data: OCDDataset,
-        optimizer: Callable[[Iterable], torch.optim.Optimizer],
-        batch_size: int,
+        flow_optimizer: Callable[[Iterable], torch.optim.Optimizer],
+        flow_batch_size: int,
+        permutation_batch_size: int,
         perm_expectation_b_size: int,
-        max_epochs: int,
-        lr_scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler],
+        rounds: int,
+        flow_lr_scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler],
         device: str,
         reinforce_baseline: Literal["mean", "zero"],
-        flow_learning_iters: int,
-        perm_learning_iters: int,
-        perm_optimizer: Callable[[Iterable], torch.optim.Optimizer] | None,
-        perm_lr_scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler] | None,
+        flow_learning_epochs: int,
+        perm_learning_epochs: int,
+        perm_optimizer: Callable[[Iterable], torch.optim.Optimizer],
+        perm_lr_scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler],
         normalize_scores: bool,
         sampling: Literal["exponential_race", "gumbel"],
-        coeff_scheduling_strategy: MultiTaskCoeffStrategy | None,
         restart_flow: bool,
     ):
         self.device = device
-        self.max_epochs = max_epochs
+        self.rounds = rounds
         self.model = model.to(device)
 
-        self.dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=True)
-        self.flow_optimizer_instantiate = optimizer
-        self.flow_lr_scheduler_instantiate = lr_scheduler
+        self.flow_dataloader = torch.utils.data.DataLoader(data, batch_size=flow_batch_size, shuffle=True)
+        self.perm_dataloader = torch.utils.data.DataLoader(data, batch_size=permutation_batch_size, shuffle=True)
+        self.flow_optimizer_instantiate = flow_optimizer
+        self.flow_lr_scheduler_instantiate = flow_lr_scheduler
 
         self.perm_expectation_b_size = perm_expectation_b_size
 
-        self.perm_optimizer_instantiate = perm_optimizer or optimizer
-        self.perm_lr_scheduler_instantiate = perm_lr_scheduler or lr_scheduler
+        self.perm_optimizer_instantiate = perm_optimizer
+        self.perm_lr_scheduler_instantiate = perm_lr_scheduler
 
         # save the dag for evaluation
         self.dag = data.dag
@@ -144,18 +93,13 @@ class PlackettLuceTrainer:
         # All one initialize (TODO)
         self.permutation_log_scores = torch.nn.Parameter(torch.zeros(len(self.dag.nodes), device=device))
 
-        self.step_count = 0
-
-        if coeff_scheduling_strategy is None:
-            coeff_scheduling_strategy = ConstantStrategy(num_tasks=2, value=1.0)
-        else:
-            self.multi_task_scheduler = coeff_scheduling_strategy
+        self.flow_step_count = 0
+        self.perm_step_count = 0
 
         self.reinforce_baseline = reinforce_baseline
 
-        self.alternating_training = flow_learning_iters > 0 and perm_learning_iters > 0
-        self.flow_learning_iters = flow_learning_iters
-        self.perm_learning_iters = perm_learning_iters
+        self.flow_learning_epochs = flow_learning_epochs
+        self.perm_learning_epochs = perm_learning_epochs
 
         self.normalize_scores = normalize_scores
 
@@ -167,7 +111,7 @@ class PlackettLuceTrainer:
         self.restart_flow = restart_flow
 
         # Log the correct order
-        wandb.log({"score/correct_order": str(list(nx.topological_sort(self.dag)))}, step=self.step_count)
+        wandb.log({"permutation/correct_order": str(list(nx.topological_sort(self.dag))), "permutation/step": 0})
 
     def run(self):
         self.model.train()
@@ -179,64 +123,71 @@ class PlackettLuceTrainer:
         perm_optimizer = self.perm_optimizer_instantiate([self.permutation_log_scores])
         perm_lr_scheduler = self.perm_lr_scheduler_instantiate(perm_optimizer)
 
-        perm_coeff, flow_coeff = 1.0, 1.0
+        for round_ in tqdm(range(self.rounds), desc="Round"):
+            # Normalize the permutation_log_scores
+            if self.normalize_scores:
+                with torch.no_grad():
+                    self.permutation_log_scores -= torch.logsumexp(self.permutation_log_scores, dim=0)
 
-        if self.alternating_training:
-            flow_training, perm_training = True, False
-            print("Alternating training")
-        else:
-            flow_training, perm_training = True, True
-            print("Joint training")
+            for flow_epoch in tqdm(range(self.flow_learning_epochs), desc="Flow"):
+                flow_avg_loss = [0.0] * len(self.flow_dataloader)
+                for i, batch in enumerate(self.flow_dataloader):
+                    batch: torch.Tensor
+                    batch = batch.to(self.device)
+                    b_size = batch.shape[0]
 
-        flow_step, perm_step = 0, 0
+                    perm_matrices = listperm2matperm(
+                        self.sample_fn(self.permutation_log_scores, b_size), device=self.device
+                    )  # shape: (b_size, n_nodes, n_nodes)
 
-        for epoch in tqdm(range(self.max_epochs)):
-            flow_avg_loss = []
-            perm_avg_loss = []
-            for batch in self.dataloader:
-                batch: torch.Tensor
+                    flow_optimizer.zero_grad()
 
-                # Normalize the permutation_log_scores
-                if self.normalize_scores:
-                    with torch.no_grad():
-                        self.permutation_log_scores -= torch.logsumexp(self.permutation_log_scores, dim=0)
+                    log_probs = self.model.log_prob(batch, perm_mat=perm_matrices.float())  # shape (b_size, 1)
+                    flow_loss = -log_probs.mean()
 
-                batch = batch.to(self.model.device)
-                b_size = batch.shape[0]
-                n_nodes = batch.shape[1]
+                    flow_loss.backward()
+                    flow_optimizer.step()
 
-                # sample from plackett luce with shape (b_size, perm_expectation_b_size, n_nodes)
+                    wandb.log({"flow/step": self.flow_step_count, "flow/loss": flow_loss.item()})
+                    flow_avg_loss[i] = flow_loss.item()
 
-                # TODO fix this
-                perm_vector = self.sample_fn(self.permutation_log_scores, b_size * self.perm_expectation_b_size)
-                # perm_vector = self.sample_fn(self.permutation_log_scores, self.perm_expectation_b_size).repeat(
-                #     b_size, 1
-                # )
-                perm_matrices = listperm2matperm(perm_vector, device=self.model.device)
+                    self.flow_step_count += 1
 
-                # shape: (b_size, perm_expectation_b_size, n_nodes)
-                batch_repeated = batch.unsqueeze(1).repeat(1, self.perm_expectation_b_size, 1)
+                if isinstance(flow_lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    flow_lr_scheduler.step(sum(flow_avg_loss) / len(flow_avg_loss))
+                else:
+                    flow_lr_scheduler.step()
 
-                # shape (b_size, perm_expectation_b_size, 1)
-                log_probs = self.model.log_prob(
-                    batch_repeated.reshape(-1, n_nodes), perm_mat=perm_matrices.float()
-                ).reshape(b_size, self.perm_expectation_b_size, 1)
+                wandb.log(
+                    {
+                        "flow/lr": flow_optimizer.param_groups[0]["lr"],
+                        "flow/epoch": flow_epoch,
+                        "flow/step": self.flow_step_count,
+                    }
+                )
 
-                denom = (log_probs.detach().exp()).mean(dim=1, keepdim=True) + 1e-6
-                numerator = log_probs.detach().exp()
-                weights = numerator / denom
+            for perm_epoch in tqdm(range(self.perm_learning_epochs), desc="Permutation"):
+                perm_avg_loss = [0.0] * len(self.perm_dataloader)
+                for i, batch in enumerate(self.perm_dataloader):
+                    batch: torch.Tensor
+                    batch = batch.to(self.device)
+                    b_size = batch.shape[0]
 
-                if flow_training:
-                    flow_loss = -((log_probs * weights).mean(dim=1)).mean()
-                    flow_step += 1
-                    if self.alternating_training and flow_step >= self.flow_learning_iters:
-                        flow_training, perm_training = False, True
-                        flow_step = 0
+                    # sample from plackett luce with shape (b_size * perm_expectation_b_size, n_nodes)
+                    perm_vector = self.sample_fn(self.permutation_log_scores, b_size * self.perm_expectation_b_size)
+                    perm_matrices = listperm2matperm(perm_vector, device=self.device).float()
 
-                    wandb.log({f"loss/flow_loss": flow_loss.item()}, step=self.step_count)
-                    flow_avg_loss.append(flow_loss.item())
+                    # shape: (b_size * perm_expectation_b_size, n_nodes)
+                    batch_repeated = batch.repeat(self.perm_expectation_b_size, 1)
 
-                if perm_training:
+                    # shape: (b_size, perm_expectation_b_size, 1)
+                    log_probs = self.model.log_prob(batch_repeated, perm_mat=perm_matrices).reshape(b_size, -1, 1)
+
+                    numerator = log_probs.detach().exp()
+                    denom = numerator.mean(dim=1, keepdim=True)  # shape: (b_size, 1, 1)
+                    denom_nonzero = torch.where(denom == 0, torch.tensor(1e-6, device=self.device), denom)
+                    weights = numerator / denom_nonzero
+
                     if self.reinforce_baseline == "mean":
                         baseline = weights.mean()
                     elif self.reinforce_baseline == "zero":
@@ -244,78 +195,56 @@ class PlackettLuceTrainer:
                     else:
                         raise ValueError(f"Baseline {self.reinforce_baseline} not supported!")
 
-                    # shape: (b_size, perm_expectation_b_size, 1)
                     log_perm_probs = log_plackett_luce_prob(self.permutation_log_scores, perm_vector).reshape(
-                        b_size, self.perm_expectation_b_size, 1
-                    )
+                        b_size, -1, 1
+                    )  # shape: (b_size, perm_expectation_b_size, 1)
+
+                    perm_optimizer.zero_grad()
 
                     perm_loss = -((log_perm_probs * (weights - baseline)).mean(dim=1)).mean()
-                    perm_step += 1
-                    if self.alternating_training and perm_step >= self.perm_learning_iters:
-                        flow_training, perm_training = True, False
-                        perm_step = 0
-                        if self.restart_flow:
-                            self.model.reinitialize()
-                            flow_optimizer = self.flow_optimizer_instantiate(self.model.parameters())
-                            flow_lr_scheduler = self.flow_lr_scheduler_instantiate(flow_optimizer)
 
-                    wandb.log({f"loss/perm_loss": perm_loss.item()}, step=self.step_count)
-                    perm_avg_loss.append(perm_loss.item())
-
-                if flow_training and perm_training:
-                    total_loss = flow_coeff * flow_loss + perm_coeff * perm_loss
-                    flow_optimizer.zero_grad()
-                    perm_optimizer.zero_grad()
-                    total_loss.backward()
-                    flow_optimizer.step()
-                    perm_optimizer.step()
-
-                    wandb.log({f"loss/total_loss": total_loss.item()}, step=self.step_count)
-
-                    perm_coeff, flow_coeff = self.multi_task_scheduler(
-                        self.step_count, losses=torch.tensor([perm_loss, flow_loss])
-                    )
-
-                    wandb.log({"coeffs/perm_coeff": perm_coeff}, step=self.step_count)
-                    wandb.log({"coeffs/flow_coeff": flow_coeff}, step=self.step_count)
-                elif flow_training:
-                    flow_optimizer.zero_grad()
-                    flow_loss.backward()
-                    flow_optimizer.step()
-                elif perm_training:
-                    perm_optimizer.zero_grad()
                     perm_loss.backward()
                     perm_optimizer.step()
 
-                if flow_training:
-                    if isinstance(flow_lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                        flow_lr_scheduler.step(sum(flow_avg_loss) / len(flow_avg_loss))
-                    else:
-                        flow_lr_scheduler.step()
+                    perm_avg_loss[i] = perm_loss.item()
 
-                    wandb.log({"flow_lr": flow_optimizer.param_groups[0]["lr"]}, step=self.step_count)
+                    self.perm_step_count += 1
 
-                if perm_training:
-                    if isinstance(perm_lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                        perm_lr_scheduler.step(sum(perm_avg_loss) / len(perm_avg_loss))
-                    else:
-                        perm_lr_scheduler.step()
-                    wandb.log({"perm_lr": perm_optimizer.param_groups[0]["lr"]}, step=self.step_count)
+                    scores = {
+                        f"permutation/score/{i}": self.permutation_log_scores[i].item()
+                        for i in range(len(self.permutation_log_scores))
+                    }
 
-                self.step_count += 1
-                scores = {}
-                for i in range(len(self.permutation_log_scores)):
-                    scores[f"score/{i}"] = self.permutation_log_scores[i].item()
+                    metrics = {
+                        "permutation/step": self.perm_step_count,
+                        "permutation/loss": perm_loss.item(),
+                        **scores,
+                    }
+                    wandb.log(metrics)
 
-                wandb.log(scores, step=self.step_count)
+                if isinstance(perm_lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    perm_lr_scheduler.step(sum(perm_avg_loss) / len(perm_avg_loss))
+                else:
+                    perm_lr_scheduler.step()
 
-                wandb.log({f"step": self.step_count}, step=self.step_count)
+                learned_perm = torch.argsort(-self.permutation_log_scores)
+                cbc_metric = backward_relative_penalty(perm=learned_perm.tolist(), dag=self.dag)
 
-            learned_perm = torch.argsort(-self.permutation_log_scores)
-            cbc_metric = backward_relative_penalty(perm=learned_perm.tolist(), dag=self.dag)
-            wandb.log({"eval/learned_perm_cbc_metric": cbc_metric}, step=self.step_count)
+                metrics = {
+                    "permutation/lr": perm_optimizer.param_groups[0]["lr"],
+                    "permutation/epoch": perm_epoch,
+                    "permutation/learned_perm_cbc_metric": cbc_metric,
+                    "permutation/step": self.perm_step_count,
+                }
 
-            wandb.log({"epoch": epoch}, step=self.step_count)
+                wandb.log(metrics)
+
+            if self.restart_flow:
+                self.model.reinitialize()
+                flow_optimizer = self.flow_optimizer_instantiate(self.model.parameters())
+                flow_lr_scheduler = self.flow_lr_scheduler_instantiate(flow_optimizer)
+
+            wandb.log({"round": round_})
 
 
 def get_torch_distribution(distr_name):
@@ -326,7 +255,7 @@ def get_torch_distribution(distr_name):
     elif distr_name == "uniform":
         return "torch.distributions.Uniform"
     else:
-        ValueError(f"Distribution {distr_name} cannot be resolved!")
+        raise ValueError(f"Distribution {distr_name} cannot be resolved!")
 
 
 def get_torch_distribution_args(distr_name):
@@ -337,7 +266,7 @@ def get_torch_distribution_args(distr_name):
     elif distr_name == "uniform":
         return [0.0, 1.0]
     else:
-        ValueError(f"Distribution {distr_name} cannot be resolved!")
+        raise ValueError(f"Distribution {distr_name} cannot be resolved!")
 
 
 # Add resolver for hydra
@@ -381,9 +310,6 @@ def init_run_dir(conf, base_name=None):
     return conf
 
 
-# TODO make the run faster by not having different permutations for each sample
-
-
 @hydra.main(version_base=None, config_path="config", config_name="plackett_luce")
 def main(conf):
     seed_everything(conf.seed)
@@ -413,23 +339,28 @@ def main(conf):
             settings=wandb.Settings(start_method="thread"),
         )
 
+        wandb.define_metric("flow/step")
+        wandb.define_metric("permutation/step")
+        wandb.define_metric("flow/*", step_metric="flow/step")
+        wandb.define_metric("permutation/*", step_metric="permutation/step")
+
         trainer = PlackettLuceTrainer(
             model=conf.model,
             data=conf.data,
-            optimizer=conf.optimizer,
-            batch_size=conf.batch_size,
+            flow_optimizer=conf.flow_optimizer,
+            flow_batch_size=conf.flow_batch_size,
+            permutation_batch_size=conf.permutation_batch_size,
             perm_expectation_b_size=conf.perm_expectation_b_size,
-            max_epochs=conf.max_epochs,
-            lr_scheduler=conf.lr_scheduler,
+            rounds=conf.rounds,
+            flow_lr_scheduler=conf.flow_lr_scheduler,
             device=conf.device,
             reinforce_baseline=conf.reinforce_baseline,
-            flow_learning_iters=conf.flow_learning_iters,
-            perm_learning_iters=conf.perm_learning_iters,
+            flow_learning_epochs=conf.flow_learning_epochs,
+            perm_learning_epochs=conf.perm_learning_epochs,
             perm_optimizer=conf.perm_optimizer,
             perm_lr_scheduler=conf.perm_lr_scheduler,
             normalize_scores=conf.normalize_scores,
             sampling=conf.sampling,
-            coeff_scheduling_strategy=conf.coeff_scheduling_strategy,
             restart_flow=conf.restart_flow,
         )
         trainer.run()
