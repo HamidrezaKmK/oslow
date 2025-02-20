@@ -17,6 +17,14 @@ from oslow.evaluation import backward_relative_penalty
 from oslow.data import OCDDataset
 
 
+# TODO: Plackett-Luce with Reinforce + Gumbel-Max for sampling
+# TODO: Plackett-Luce with exponential race sampling but soft-sort gradient straight-through estimation
+# TODO: No Plackett-Luce and just Gubmel-Sinkhorn
+# TODO: Read Ermon's paper on Plackett-Luce
+# TODO: Read https://arxiv.org/pdf/2006.16038
+# TODO: Hyper-parameter Sweep 
+
+
 @torch.no_grad()
 def sample_plackett_luce(log_scores: torch.Tensor, num_samples: int = 1) -> torch.Tensor:
     """
@@ -184,9 +192,9 @@ class PlackettLuceTrainer:
                     log_probs = self.model.log_prob(batch_repeated, perm_mat=perm_matrices).reshape(b_size, -1, 1)
 
                     numerator = log_probs.detach().exp()
-                    denom = numerator.mean(dim=1, keepdim=True)  # shape: (b_size, 1, 1)
-                    denom_nonzero = torch.where(denom == 0, torch.tensor(1e-6, device=self.device), denom)
-                    weights = numerator / denom_nonzero
+                    # TODO can be estimated using a different set of samples (for sample size = 1)
+                    denom = numerator.mean(dim=1, keepdim=True) + 1e-6  # shape: (b_size, 1, 1)
+                    weights = numerator / denom
 
                     if self.reinforce_baseline == "mean":
                         baseline = weights.mean()
