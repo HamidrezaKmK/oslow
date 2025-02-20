@@ -2,6 +2,7 @@ defaults:
   - data: default
   - model: affine_specified
   - hydra: default
+  - coeff_scheduling_strategy: dwa
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
   - _self_
@@ -12,7 +13,7 @@ optimizer:
   _partial_: true
 
 batch_size: 128
-perm_expectation_b_size: 32
+perm_expectation_b_size: 64
 max_epochs: 1000
 
 
@@ -40,11 +41,6 @@ perm_lr_scheduler:
 normalize_scores: true
 
 sampling: exponential_race
-
-coeff_scheduling_strategy:
-  _target_: __main__.DWAMultiTaskStrategy
-  num_tasks: 2
-  temperature: 1.0
 
 
 

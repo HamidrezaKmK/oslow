@@ -138,8 +138,6 @@ dmypy.json
 # temporary files
 *.tmp
 
-slurm
-
 # temporary data files
 data/*
 temp/*
@@ -194,3 +192,5 @@ docs/*.out
 docs/*.fdb_latexmk
 docs/*.logs
 docs/*.synctex.gz
+
+run-*

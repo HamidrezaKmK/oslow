@@ -1,0 +1,3 @@
+_target_: __main__.DWAMultiTaskStrategy
+num_tasks: 2
+temperature: 1.0

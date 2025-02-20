@@ -206,7 +206,12 @@ class PlackettLuceTrainer:
                 n_nodes = batch.shape[1]
 
                 # sample from plackett luce with shape (b_size, perm_expectation_b_size, n_nodes)
+
+                # TODO fix this
                 perm_vector = self.sample_fn(self.permutation_log_scores, b_size * self.perm_expectation_b_size)
+                # perm_vector = self.sample_fn(self.permutation_log_scores, self.perm_expectation_b_size).repeat(
+                #     b_size, 1
+                # )
                 perm_matrices = listperm2matperm(perm_vector, device=self.model.device)
 
                 # shape: (b_size, perm_expectation_b_size, n_nodes)
