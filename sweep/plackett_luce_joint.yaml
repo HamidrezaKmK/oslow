@@ -1,6 +1,6 @@
 ---
 program: placket_luce.py
-name: placket_luce_joint
+name: placket_luce_joint_d=5
 method: random
 metric:
     goal: minimize
@@ -12,11 +12,14 @@ parameters:
     perm_expectation_b_size:
       values: [32, 64, 128]
 
-    optimizer.learning_rate:
+    optimizer.lr:
       values: [0.001, 0.0001]
 
-    perm_optimizer.learning_rate:
+    perm_optimizer.lr:
       values: [0.01, 0.001, 0.0001]
+
+    normalize_scores:
+      values: [True, False]
 
     reinforce_baseline:
       values: [zero, mean]
@@ -37,3 +40,5 @@ command:
     - perm_learning_iters=-1
     - data=default
     - model=affine_specified
+    - data.graph_generator.num_nodes=5
+    - data.num_samples=2000
