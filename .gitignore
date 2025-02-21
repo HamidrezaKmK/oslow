@@ -194,3 +194,4 @@ docs/*.logs
 docs/*.synctex.gz
 
 run-*
+.temp**

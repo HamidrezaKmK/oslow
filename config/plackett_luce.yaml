@@ -43,8 +43,6 @@ perm_lr_scheduler:
 
 normalize_scores: true
 
-sampling: exponential_race
-
 
 
 wandb:

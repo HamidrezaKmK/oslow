@@ -17,12 +17,9 @@ from oslow.evaluation import backward_relative_penalty
 from oslow.data import OCDDataset
 
 
-# TODO: Plackett-Luce with Reinforce + Gumbel-Max for sampling
-# TODO: Plackett-Luce with exponential race sampling but soft-sort gradient straight-through estimation
+# TODO: Plackett-Luce with exponential race / Gumbel-Max sampling but soft-sort gradient straight-through estimation
 # TODO: No Plackett-Luce and just Gubmel-Sinkhorn
-# TODO: Read Ermon's paper on Plackett-Luce
-# TODO: Read https://arxiv.org/pdf/2006.16038
-# TODO: Hyper-parameter Sweep 
+# TODO: Hyper-parameter Sweep
 
 
 @torch.no_grad()
@@ -78,7 +75,6 @@ class PlackettLuceTrainer:
         perm_optimizer: Callable[[Iterable], torch.optim.Optimizer],
         perm_lr_scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler],
         normalize_scores: bool,
-        sampling: Literal["exponential_race", "gumbel"],
         restart_flow: bool,
     ):
         self.device = device
@@ -111,11 +107,6 @@ class PlackettLuceTrainer:
 
         self.normalize_scores = normalize_scores
 
-        if sampling == "exponential_race":
-            self.sample_fn = sample_plackett_luce
-        else:
-            raise ValueError(f"Sampling method {sampling} not supported!")
-
         self.restart_flow = restart_flow
 
         # Log the correct order
@@ -145,7 +136,7 @@ class PlackettLuceTrainer:
                     b_size = batch.shape[0]
 
                     perm_matrices = listperm2matperm(
-                        self.sample_fn(self.permutation_log_scores, b_size), device=self.device
+                        sample_plackett_luce(self.permutation_log_scores, b_size), device=self.device
                     )  # shape: (b_size, n_nodes, n_nodes)
 
                     flow_optimizer.zero_grad()
@@ -182,7 +173,9 @@ class PlackettLuceTrainer:
                     b_size = batch.shape[0]
 
                     # sample from plackett luce with shape (b_size * perm_expectation_b_size, n_nodes)
-                    perm_vector = self.sample_fn(self.permutation_log_scores, b_size * self.perm_expectation_b_size)
+                    perm_vector = sample_plackett_luce(
+                        self.permutation_log_scores, b_size * self.perm_expectation_b_size
+                    )
                     perm_matrices = listperm2matperm(perm_vector, device=self.device).float()
 
                     # shape: (b_size * perm_expectation_b_size, n_nodes)
