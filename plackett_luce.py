@@ -361,7 +361,6 @@ def main(conf):
             perm_optimizer=conf.perm_optimizer,
             perm_lr_scheduler=conf.perm_lr_scheduler,
             normalize_scores=conf.normalize_scores,
-            sampling=conf.sampling,
             restart_flow=conf.restart_flow,
         )
         trainer.run()
