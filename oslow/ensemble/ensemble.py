@@ -172,4 +172,3 @@ class EnsembleTrainer:
                 self.visualize_scatterplot()
 
             wandb.log({"epoch/ensemble": epoch})
-

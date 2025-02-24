@@ -3,6 +3,7 @@ import wandb
 import os
 import itertools
 import torch
+import random
 
 from omegaconf import OmegaConf
 from pprint import pprint
@@ -38,17 +39,29 @@ def get_permutations(n: int) -> List[List[int]]:
     return list(itertools.permutations(range(n)))
 
 
+def get_random_permutations_subset(n: int, k: int, seed: int = 96875) -> List[List[int]]:
+    random.seed(seed)
+    permutations_set = set()
+    numbers = list(range(n))
+
+    while len(permutations_set) < k:
+        random.shuffle(numbers)
+        permutations_set.add(tuple(numbers))
+
+    return list(permutations_set)
+
+
 # Add resolver for hydra
 OmegaConf.register_new_resolver("eval", eval)
 OmegaConf.register_new_resolver("get_torch_distribution", get_torch_distribution)
-OmegaConf.register_new_resolver(
-    "get_torch_distribution_args", get_torch_distribution_args
-)
+OmegaConf.register_new_resolver("get_torch_distribution_args", get_torch_distribution_args)
 OmegaConf.register_new_resolver("get_permutations", get_permutations)
+OmegaConf.register_new_resolver("get_random_permutations_subset", get_random_permutations_subset)
 
 
 def init_run_dir(conf, base_name=None):
     # Handle preemption and resume
+    base_name = "" if base_name is None else base_name
     run_name = str(conf.wandb.run_name)
     resume = True
     r = RandomWords()
@@ -85,15 +98,17 @@ def init_run_dir(conf, base_name=None):
 @hydra.main(version_base=None, config_path="config", config_name="ensemble")
 def main(conf):
     seed_everything(conf.seed)
-    model_type = "additive" if conf.data.additive else "affine"
-    num_nodes = conf.data.graph_generator.num_nodes
-    graph_type = conf.data.graph_generator.graph_type
-    noise_type = conf.data.noise_generator.noise_type
-    if "link" in conf.data:
-        link_function = conf.data.link
-        run_name = f"{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
-    else:
-        run_name = f"nonparametric_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
+    run_name = None
+    if "additive" in conf.data and "graph_generator" in conf.data and "noise_generator" in conf.data:
+        model_type = "additive" if conf.data.additive else "affine"
+        num_nodes = conf.data.graph_generator.num_nodes
+        graph_type = conf.data.graph_generator.graph_type
+        noise_type = conf.data.noise_generator.noise_type
+        if "link" in conf.data:
+            link_function = conf.data.link
+            run_name = f"{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
+        else:
+            run_name = f"nonparametric_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
 
     conf = hydra.utils.instantiate(conf)
     if conf.test_run:
@@ -115,9 +130,7 @@ def main(conf):
         wandb.define_metric("flow/*", step_metric="flow/step")
         wandb.define_metric("permutation/*", step_metric="permutation/step")
         dset = conf.data
-        flow_dloader = torch.utils.data.DataLoader(
-            dset, batch_size=conf.flow_batch_size, shuffle=True
-        )
+        flow_dloader = torch.utils.data.DataLoader(dset, batch_size=conf.flow_batch_size, shuffle=True)
         flow_ensemble_dloader = torch.utils.data.DataLoader(
             dset, batch_size=conf.flow_ensemble_batch_size, shuffle=True
         )
