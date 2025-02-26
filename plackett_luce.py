@@ -17,6 +17,9 @@ from oslow.evaluation import backward_relative_penalty
 from oslow.data import OCDDataset
 
 
+# TODO compare the best permutation from the training to the actual best permutation at the end
+# TODO Learn the connected component first and then do flow training on it (Placett-Luce on partially ordered lists)
+
 # TODO: Plackett-Luce with exponential race / Gumbel-Max sampling but soft-sort gradient straight-through estimation
 # TODO: No Plackett-Luce and just Gubmel-Sinkhorn
 # TODO: Hyper-parameter Sweep
