@@ -44,6 +44,8 @@ perm_lr_scheduler:
 normalize_scores: true
 
 
+post_processing_method: null
+
 
 wandb:
   run_name: plackett_luce_
