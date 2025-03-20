@@ -1,9 +1,9 @@
 _target_: oslow.data.synthetic.parametric.AffineParametericDataset
-num_samples: 50000
+num_samples: 10000
 graph_generator:
   _target_: oslow.data.synthetic.graph_generator.GraphGenerator
-  graph_type: full
-  num_nodes: 4
+  graph_type: full  # can be 'erdos_renyi' (random), 'full' (tournament), or 'chain' (path)
+  num_nodes: 3
   seed: 42
   enforce_ordering: null
 noise_generator:
