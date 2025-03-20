@@ -4,17 +4,22 @@ import os
 import torch
 
 import networkx as nx
+import pandas as pd
 
 from omegaconf import OmegaConf
 from pprint import pprint
 from random_word import RandomWords
-from typing import Callable, Iterable, Literal
+from typing import Callable, Iterable, Literal, List, Dict
 from tqdm import tqdm
 
 from oslow.models.oslow import OSlow
 from oslow.training.utils import listperm2matperm, seed_everything
-from oslow.evaluation import backward_relative_penalty
+from oslow.evaluation import backward_relative_penalty, sid, shd
 from oslow.data import OCDDataset
+
+from oslow.post_processing.cam_pruning import sparse_regression_based_pruning
+from oslow.post_processing.pc_pruning import pc_based_pruning
+from oslow.post_processing.ultimate_pruning import ultimate_pruning
 
 
 # TODO compare the best permutation from the training to the actual best permutation at the end
@@ -115,7 +120,7 @@ class PlackettLuceTrainer:
         # Log the correct order
         wandb.log({"permutation/correct_order": str(list(nx.topological_sort(self.dag))), "permutation/step": 0})
 
-    def run(self):
+    def run(self) -> List[int]:
         self.model.train()
         self.model = self.model.to(self.device)
 
@@ -124,6 +129,8 @@ class PlackettLuceTrainer:
 
         perm_optimizer = self.perm_optimizer_instantiate([self.permutation_log_scores])
         perm_lr_scheduler = self.perm_lr_scheduler_instantiate(perm_optimizer)
+
+        learned_perm = None
 
         for round_ in tqdm(range(self.rounds), desc="Round"):
             # Normalize the permutation_log_scores
@@ -250,6 +257,8 @@ class PlackettLuceTrainer:
 
             wandb.log({"round": round_})
 
+        return learned_perm.tolist()
+
 
 def get_torch_distribution(distr_name):
     if distr_name == "laplace":
@@ -315,6 +324,20 @@ def init_run_dir(conf, base_name=None):
     return conf
 
 
+def metrics_fn(
+    order: List[int], samples: pd.DataFrame, true_dag: nx.DiGraph, method: Literal["pc", "cam", "ultimate"] = "pc"
+) -> Dict[str, float]:
+    if method == "pc":
+        dag = pc_based_pruning(samples, order, verbose=False)
+    elif method == "cam":
+        dag = sparse_regression_based_pruning(samples, order)
+    elif method == "ultimate":
+        dag = ultimate_pruning(samples, order)
+    else:
+        raise NotImplementedError()
+    return {"SID": sid(true_dag, dag), "SHD": shd(true_dag, dag)}
+
+
 @hydra.main(version_base=None, config_path="config", config_name="plackett_luce")
 def main(conf):
     seed_everything(conf.seed)
@@ -374,7 +397,12 @@ def main(conf):
             normalize_scores=conf.normalize_scores,
             restart_flow=conf.restart_flow,
         )
-        trainer.run()
+
+        perm_learned = trainer.run()
+
+        if conf.post_processing_method is not None:
+            metrics = metrics_fn(perm_learned, conf.data.samples, conf.data.dag, method=conf.post_processing_method)
+            wandb.log(metrics)
         wandb.finish()
 
 

@@ -9,7 +9,6 @@ random-word
 pydantic
 scikit-learn
 hydra-core
-cdt
 igraph
 causal-learn
 torch --index-url https://download.pytorch.org/whl/cu121

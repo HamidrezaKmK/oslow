@@ -3,7 +3,7 @@ import numpy as np
 import random
 import networkx as nx
 
-from cdt.metrics import SID
+from .sid import structural_intervention_distance as SID
 
 
 def dfs(node, adj, stack, visited):
@@ -115,17 +115,13 @@ def shd(true_dag: nx.DiGraph, estimated_dag: nx.DiGraph, with_change_orientation
             ret += 1
     if with_change_orientation:
         for u, v in true_dag.edges():
-            if (
-                estimated_dag.has_edge(u, v)
-                and not estimated_dag.has_edge(v, u)
-                and not true_dag.has_edge(v, u)
-            ):
+            if estimated_dag.has_edge(u, v) and not estimated_dag.has_edge(v, u) and not true_dag.has_edge(v, u):
                 ret -= 1
     return ret
 
 
 def sid(true_dag: nx.DiGraph, estimated_dag: nx.DiGraph):
-    return SID(true_dag, estimated_dag)
+    return SID(nx.to_numpy_array(true_dag), nx.to_numpy_array(estimated_dag))["sid"]
 
 
 def closure_distance(perm: th.List[int], dag: np.array):
