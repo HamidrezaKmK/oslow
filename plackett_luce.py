@@ -351,7 +351,7 @@ def main(conf):
         pnl_transform = conf.data.post_non_linear_transform
         if "link" in conf.data:
             link_function = conf.data.link
-            if pnl_transform in conf.data is not None:
+            if pnl_transform is not None:
                 run_name = f"pnl_{pnl_transform}-{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
             else:
                 run_name = f"{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
