@@ -95,7 +95,7 @@ def init_run_dir(conf, base_name=None):
     return conf
 
 
-@hydra.main(version_base=None, config_path="config", config_name="ensemble")
+@hydra.main(version_base=None, config_path="config", config_name="ensemble_sweep")
 def main(conf):
     seed_everything(conf.seed)
     run_name = None
@@ -104,9 +104,13 @@ def main(conf):
         num_nodes = conf.data.graph_generator.num_nodes
         graph_type = conf.data.graph_generator.graph_type
         noise_type = conf.data.noise_generator.noise_type
+        pnl_transform = conf.data.post_non_linear_transform
         if "link" in conf.data:
             link_function = conf.data.link
-            run_name = f"{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
+            if pnl_transform is not None:
+                run_name = f"pnl_{pnl_transform}-{link_function}_{noise_type}_{graph_type}_d{num_nodes}"
+            else:
+                run_name = f"{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
         else:
             run_name = f"nonparametric_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
 
@@ -143,7 +147,7 @@ def main(conf):
             flow_ensemble_dataloader=flow_ensemble_dloader,
         )
         trainer.run()
-
+        wandb.finish()
 
 if __name__ == "__main__":
     main()
