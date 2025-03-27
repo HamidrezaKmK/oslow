@@ -103,7 +103,7 @@ class PlackettLuceTrainer:
         self.dag = data.dag
 
         # All one initialize (TODO)
-        self.permutation_log_scores = torch.nn.Parameter(torch.zeros(len(self.dag.nodes), device=device))
+        self._permutation_log_scores = torch.nn.Parameter(torch.zeros(len(self.dag.nodes), device=device))
 
         self.flow_step_count = 0
         self.perm_step_count = 0
@@ -120,6 +120,14 @@ class PlackettLuceTrainer:
         # Log the correct order
         wandb.log({"permutation/correct_order": str(list(nx.topological_sort(self.dag))), "permutation/step": 0})
 
+    @property
+    def permutation_log_scores(self) -> torch.Tensor:
+        if self.normalize_scores:
+            with torch.no_grad():
+                self._permutation_log_scores -= torch.logsumexp(self._permutation_log_scores, dim=0)
+
+        return self._permutation_log_scores
+
     def run(self) -> List[int]:
         self.model.train()
         self.model = self.model.to(self.device)
@@ -133,10 +141,6 @@ class PlackettLuceTrainer:
         learned_perm = None
 
         for round_ in tqdm(range(self.rounds), desc="Round"):
-            # Normalize the permutation_log_scores
-            if self.normalize_scores:
-                with torch.no_grad():
-                    self.permutation_log_scores -= torch.logsumexp(self.permutation_log_scores, dim=0)
 
             for flow_epoch in tqdm(range(self.flow_learning_epochs), desc="Flow"):
                 flow_avg_loss = [0.0] * len(self.flow_dataloader)
