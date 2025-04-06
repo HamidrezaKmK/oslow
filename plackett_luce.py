@@ -141,7 +141,11 @@ class PlackettLuceTrainer:
         learned_perm = None
 
         for round_ in tqdm(range(self.rounds), desc="Round"):
-
+            self.model.train()
+            
+            for param in self.model.parameters():
+                param.requires_grad = True
+                
             for flow_epoch in tqdm(range(self.flow_learning_epochs), desc="Flow"):
                 flow_avg_loss = [0.0] * len(self.flow_dataloader)
                 for i, batch in enumerate(self.flow_dataloader):
@@ -178,6 +182,10 @@ class PlackettLuceTrainer:
                         "flow/step": self.flow_step_count,
                     }
                 )
+
+            self.model.eval()
+            for param in self.model.parameters():
+                param.requires_grad = False
 
             for perm_epoch in tqdm(range(self.perm_learning_epochs), desc="Permutation"):
                 perm_avg_loss = [0.0] * len(self.perm_dataloader)
