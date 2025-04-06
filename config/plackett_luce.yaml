@@ -11,10 +11,10 @@ flow_optimizer:
   lr: 0.0005
   _partial_: true
 
-flow_batch_size: 128
+flow_batch_size: 256
 
-permutation_batch_size: 64
-perm_expectation_b_size: 16
+permutation_batch_size: 32
+perm_expectation_b_size: 8
 
 rounds: 10
 
@@ -29,8 +29,8 @@ reinforce_baseline: zero
 
 restart_flow: true
 
-flow_learning_epochs: 250
-perm_learning_epochs: 25
+flow_learning_epochs: 100
+perm_learning_epochs: 10
 
 perm_optimizer:
   _target_: torch.optim.AdamW
@@ -43,9 +43,7 @@ perm_lr_scheduler:
 
 normalize_scores: true
 
-
-post_processing_method: null
-
+post_processing_method: pc
 
 wandb:
   run_name: plackett_luce_

@@ -63,11 +63,15 @@ class GraphGenerator:
         if self.graph_generator_type == "erdos_renyi":
             # generate a random graph using erdos renyi model
             if "p" not in self.graph_generator_args:
-                raise ValueError(
-                    "p must be specified when using erdos_renyi graph generator"
-                )
+                # raise ValueError(
+                #     "p must be specified when using erdos_renyi graph generator"
+                # )
+                print("p should be specified when using erdos_renyi graph generator. Setting p to 0.5 because no value was provided.")
+                p=0.5
+            else:
+                p=self.graph_generator_args["p"]
             new_dag = nx.gnp_random_graph(
-                self.num_nodes, self.graph_generator_args["p"], seed=seed
+                self.num_nodes, p, seed=seed
             )
         elif self.graph_generator_type == "barabasi_albert":
             # generate a random graph using barabasi albert model
