@@ -24,6 +24,6 @@ for data_type in 'pnl_sigmoid_sinusoid' 'pnl_sinusoid_softplus'; do
         # 'glob(*)'
         # 'choice(erdos_renyi,full)'
     wandb sync --clean --clean-old-hours 0
-    sleep 30
+    sleep 30 # wait for wandb to sync
 done
 
