@@ -24,12 +24,6 @@ for data_type in 'pnl_sigmoid_sinusoid' 'pnl_sinusoid_softplus'; do
         # 'glob(*)'
         # 'choice(erdos_renyi,full)'
     wandb sync --clean --clean-old-hours 0
-    sleep 120
-
-    cd /mfs1/u/aidanl/oslow/multirun
-    rm -rf *
-
-    cd /mfs1/u/aidanl/oslow/runs
-    rm -rf *
+    sleep 30
 done
 
