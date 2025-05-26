@@ -195,3 +195,5 @@ docs/*.synctex.gz
 
 run-*
 .temp**
+
+slurm-*.out
