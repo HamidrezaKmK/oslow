@@ -1,0 +1,82 @@
+defaults:
+  - data: default
+  - model: affine_specified
+  - trainer: ensemble
+  - hydra: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - override hydra/launcher: basic
+  - _self_
+
+# Experiment setup
+experiment:
+  # Graph sizes to test
+  graph_sizes: [4, 5]  # [3, 4, 5, 6, 10, 25]
+  # Number of simulations per configuration
+  simulations:
+    small: 3  # for d ≤ 6      #  small: 20  # for d ≤ 6
+    large: 3  # for d ≥ 10     #  large: 10  # for d ≥ 10
+  
+  # All possible configurations
+  structures:
+    - name: erdos_renyi
+      type: erdos_renyi
+      params:
+        p: 0.5
+    - name: tournament
+      type: full
+      params: {}
+    - name: path
+      type: chain
+      params: {}
+
+  link_functions:
+    - name: nonparametric
+      type: nonparametric
+      is_parametric: false
+      kernel_params:
+        s_rbf_kernel_gamma: 1.0
+        t_rbf_kernel_gamma: 1.0
+        invertibility_coefficient: 1.0
+    - name: sinusoidal
+      type: sinusoid
+      is_parametric: true
+    - name: polynomial
+      type: cubic
+      is_parametric: true
+    - name: linear
+      type: linear
+      is_parametric: true
+
+  noise_types:
+    - name: normal
+      type: normal
+      params:
+        loc: 0
+        scale: 1
+    - name: laplace
+      type: laplace
+      params:
+        loc: 0
+        scale: 1
+
+  variants:
+    - name: affine
+      is_additive: false
+    - name: additive
+      is_additive: true
+
+wandb:
+  project: ensemble_table5
+  run_name: table5sweep_affinespecified
+
+hydra:
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+flow_batch_size: ${eval:'64 if ${data.graph_generator.num_nodes} >= 5 else 128'}
+flow_ensemble_batch_size: ${eval:'32 if ${data.graph_generator.num_nodes} >= 5 else 64'}
+
+out_dir: runs/
+test_run: false

@@ -1,0 +1,19 @@
+_target_: oslow.models.oslow.OSlow
+in_features: 11
+layers: [128, 64, 128]
+dropout: null
+num_transforms: 1 # number of transformations to apply (you can change)
+residual: false
+activation:
+  _target_: torch.nn.LeakyReLU
+additive: false # set according to the dataset
+normalization:
+  _target_: oslow.models.normalization.ActNorm
+  _partial_: true
+
+base_distribution:
+  _target_: torch.distributions.Normal
+  _args_: [0, 1]
+
+ordering: null
+num_post_nonlinear_transforms: 0

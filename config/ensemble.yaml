@@ -1,6 +1,6 @@
 defaults:
   - data: default
-  - model: specified
+  - model: affine_specified
   - trainer: ensemble
   - hydra: default
   - override hydra/hydra_logging: disabled
@@ -16,3 +16,5 @@ flow_ensemble_batch_size: 128
 
 test_run: false
 out_dir: runs/
+
+seed: 12345

@@ -1,0 +1,61 @@
+defaults:
+  - data: default
+  - model: affine_specified
+  - hydra: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - _self_
+
+hydra:
+  sweep:
+    dir: /mfs1/u/aidanl/oslow/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+flow_optimizer:
+  _target_: torch.optim.AdamW
+  lr: 0.0005
+  _partial_: true
+
+flow_batch_size: 256
+
+permutation_batch_size: 32
+perm_expectation_b_size: 8
+
+rounds: 10
+
+
+flow_lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true
+
+device: cuda
+
+reinforce_baseline: zero
+
+restart_flow: true
+
+flow_learning_epochs: 250
+perm_learning_epochs: 30
+
+perm_optimizer:
+  _target_: torch.optim.AdamW
+  lr: 0.01
+  _partial_: true
+
+perm_lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  _partial_: true
+
+normalize_scores: true
+
+post_processing_method: cam
+
+wandb:
+  run_name: plackett_luce_  # NOTE: This adds this as a prefix to the run name. The run name is automatically generated with the details of the run.
+  project: plackett_luce  # NOTE: You should specify this yourself.
+
+test_run: false
+out_dir: runs/
+
+
+seed: 123456

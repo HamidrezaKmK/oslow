@@ -2,6 +2,7 @@ import torch
 import typing as th
 import numpy as np
 import functools
+import random
 
 # most of the codes are humbly borrowed/adapted from
 # https://github.com/sharpenb/Differentiable-DAG-Sampling/tree/44f96769a729efc99bdd16c9b00deee4077a76b2
@@ -19,34 +20,48 @@ def sinkhorn(log_x: torch.Tensor, iters: int, temp: float):
         -However, for stability, sinkhorn works in the log-space. It is only at
         return time that entries are exponentiated.
 
-    [1] https://projecteuclid.org/journals/pacific-journal-of-mathematics/volume-21/issue-2/\
-        Concerning-nonnegative\-matrices-and-doubly-stochastic-matrices
+    [1] https://projecteuclid.org/journals/pacific-journal-of-mathematics/volume-21/issue-2/
+        Concerning-nonnegative-matrices-and-doubly-stochastic-matrices
     """
     n = log_x.size()[1]
     log_x = log_x.reshape(-1, n, n) / temp
     for _ in range(iters):
-        log_x = log_x - (torch.logsumexp(log_x, dim=2,
-                         keepdim=True)).reshape(-1, n, 1)
-        log_x = log_x - (torch.logsumexp(log_x, dim=1,
-                         keepdim=True)).reshape(-1, 1, n)
+        log_x = log_x - (torch.logsumexp(log_x, dim=2, keepdim=True)).reshape(-1, n, 1)
+        log_x = log_x - (torch.logsumexp(log_x, dim=1, keepdim=True)).reshape(-1, 1, n)
     results = torch.exp(log_x)
     return results
 
 
-def translate_idx_ordering(
-    idx: th.Union[th.List[int], th.List[th.List[int]], np.array]
-):
-    if isinstance(idx[0], list):
-        return [translate_idx_ordering(i) for i in idx]
-    else:
-        return [j for i, j in sorted(zip(idx, range(len(idx))))]
+def matperm2listperm(perm_mat: torch.Tensor) -> th.List[int]:
+    """
+    Converts a permutation matrix to a list of integers.
+    Args:
+        perm_mat: a permutation matrix of shape [N, N]
+    Returns:
+        a list of integers representing the permutation
+    """
+    return perm_mat.argmax(dim=0).tolist()
 
 
-def turn_into_matrix(permutation: torch.IntTensor):
+def listperm2matperm(listperm: th.Union[torch.Tensor, th.List[int]], device=None, dtype=None):
+    """Converts a batch of permutations to its matricial form.
+    Args:
+      listperm: 2D tensor of permutations of shape [batch_size, n_objects] so that
+        listperm[n] is a permutation of range(n_objects).
+      device: device to place the output tensor on. (default: None)
+      dtype: dtype of the output tensor. (default: None)
+    Returns:
+      a 3D tensor of permutations matperm of
+        shape = [batch_size, n_objects, n_objects] so that matperm[n, :, :] is a
+        permutation of the identity matrix, with matperm[n, i, listperm[n,i]] = 1
+    """
+    listperm = (
+        torch.as_tensor(listperm, device=device)
+        if not isinstance(listperm, torch.Tensor)
+        else listperm.to(device=device)
+    )
     return (
-        torch.eye(permutation.shape[0])
-        .to(permutation.device)[permutation]
-        .to(permutation.device)
+        torch.eye(listperm.shape[-1], device=device)[listperm.long()].to(device=device, dtype=dtype).transpose(-1, -2)
     )
 
 
@@ -93,9 +108,7 @@ def is_doubly_stochastic(mat, threshold: th.Optional[float] = 1e-4) -> torch.Ten
             (mat.sum(-1) - 1).abs().max(-1).values,
             (mat.sum(-2) - 1).abs().max(-1).values,
         )
-    return ((mat.sum(-1) - 1).abs().max(-1).values < threshold) & (
-        (mat.sum(-2) - 1).abs().max(-1).values < threshold
-    )
+    return ((mat.sum(-1) - 1).abs().max(-1).values < threshold) & ((mat.sum(-2) - 1).abs().max(-1).values < threshold)
 
 
 def is_permutation(mat, threshold: th.Optional[float] = 1e-4):
@@ -144,9 +157,7 @@ def is_between_zero_one(mat, threshold: th.Optional[float] = 1e-4):
     return results if threshold is None else results < threshold
 
 
-def evaluate_permutations(
-    mat, threshold: th.Optional[float] = 1e-4, reduce: bool = True
-):
+def evaluate_permutations(mat, threshold: th.Optional[float] = 1e-4, reduce: bool = True):
     """
     Evaluates a matrix of permutations (or a batch of matrices of permutations)
 
@@ -170,39 +181,10 @@ def evaluate_permutations(
         between_zero_one_distance=is_between_zero_one(mat, threshold=None),
     )
     if threshold is not None:
-        results.update(
-            {
-                f'is_{k.replace("_distance", "")}': v < threshold
-                for k, v in results.items()
-            }
-        )
+        results.update({f'is_{k.replace("_distance", "")}': v < threshold for k, v in results.items()})
     if reduce:
         results = {k: v.float().mean() for k, v in results.items()}
     return results
-
-
-def listperm2matperm(
-    listperm: th.Union[torch.Tensor, th.List[int]], device=None, dtype=None
-):
-    """Converts a batch of permutations to its matricial form.
-    Args:
-      listperm: 2D tensor of permutations of shape [batch_size, n_objects] so that
-        listperm[n] is a permutation of range(n_objects).
-      device: device to place the output tensor on. (default: None)
-      dtype: dtype of the output tensor. (default: None)
-    Returns:
-      a 3D tensor of permutations matperm of
-        shape = [batch_size, n_objects, n_objects] so that matperm[n, :, :] is a
-        permutation of the identity matrix, with matperm[n, i, listperm[n,i]] = 1
-    """
-    listperm = (
-        torch.as_tensor(listperm, device=device)
-        if not isinstance(listperm, torch.Tensor)
-        else listperm
-    )
-    return torch.eye(listperm.shape[-1], device=device)[listperm.long()].to(
-        device=device, dtype=dtype
-    )
 
 
 def hungarian(matrix_batch):
@@ -230,71 +212,12 @@ def hungarian(matrix_batch):
     device = matrix_batch.device
     matrix_batch = matrix_batch.detach().cpu().numpy()
     if matrix_batch.ndim == 2:
-        matrix_batch = np.reshape(
-            matrix_batch, [1, matrix_batch.shape[0], matrix_batch.shape[1]]
-        )
+        matrix_batch = np.reshape(matrix_batch, [1, matrix_batch.shape[0], matrix_batch.shape[1]])
     sol = np.zeros((matrix_batch.shape[0], matrix_batch.shape[1]), dtype=np.int32)
     for i in range(matrix_batch.shape[0]):
-        sol[i, :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
+        res = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
+        sol[i, :] = np.argsort(res)
     return torch.from_numpy(sol).to(device).detach()
-
-
-def all_permutations(n):
-    """Returns all permutations of range(n)"""
-    if n == 1:
-        return [[0]]
-    else:
-        perms = []
-        for perm in all_permutations(n - 1):
-            for i in range(n):
-                perms.append(perm[:i] + [n - 1] + perm[i:])
-        return perms
-
-
-def abbriviate_permutation(permutation_list: th.Iterable[int]) -> str:
-    """
-    Loop over the permutation_list (a list of unique integers) and find all consecutive sequences
-    of ascending/descending numbers and replace them with the first and last number in
-    the sequence. Numbers are expected to be between 0 and len(permutation_list) - 1.
-
-    For example: [0, 1, 2, 3, 4] -> ["0-4"] and [4, 3, 2, 1, 0] -> ["4-0"]
-        or [0, 1, 2, 3, 10, 9, 8, 4, 5, 7, 6] -> ["0-3", "10-8", "4-5", "7-6"]
-
-    This is useful for plotting the permutation_list of the permutation matrix in a more compact way.
-
-    Args:
-        permutation_list (th.Iterable[int]): A list of unique integers between 0 and len(permutation_list) - 1
-
-    Returns:
-       an abbreviated string representation of the permutation_list
-    """
-    if len(permutation_list) < 2:
-        return permutation_list
-    permutation_list, results = list(permutation_list), []
-    ascending: bool = permutation_list[0] < permutation_list[1]
-    start, start_idx = permutation_list[0], 0
-    for i in range(1, len(permutation_list)):
-        if ascending and permutation_list[i] == permutation_list[i - 1] + 1:
-            continue
-        elif not ascending and permutation_list[i] == permutation_list[i - 1] - 1:
-            continue
-        else:
-            if start_idx == i - 1:
-                results.append(f"{start}")
-            else:
-                results.append(f"{start}-{permutation_list[i-1]}")
-            start, start_idx = permutation_list[i], i
-            ascending = (
-                permutation_list[i] < permutation_list[i + 1]
-                if i < len(permutation_list) - 1
-                else ascending
-            )
-
-    if start_idx < len(permutation_list) - 1:
-        results.append(f"{start}-{permutation_list[-1]}")
-    else:
-        results.append(f"{start}")
-    return f'[{",".join(results)}]'
 
 
 def generate_permutations(n: int, num_samples: int = 1, return_matrix: bool = True):
@@ -313,12 +236,19 @@ def generate_permutations(n: int, num_samples: int = 1, return_matrix: bool = Tr
     results = torch.empty(num_samples, n).long()
     num_unique = 0
     while num_unique < num_samples:
-        all_perms = torch.cat(
-            [results[:num_unique], torch.randperm(n).reshape(1, -1)], dim=0
-        ).unique(dim=0)
+        all_perms = torch.cat([results[:num_unique], torch.randperm(n).reshape(1, -1)], dim=0).unique(dim=0)
         results[: len(all_perms)] = all_perms
         num_unique = len(all_perms)
 
     if return_matrix:
-        return listperm2matperm(results)
+        return listperm2matperm(results, device="cpu")
     return results
+
+
+
+def seed_everything(seed: int):
+    """Seed everything for reproducibility."""
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed_all(seed)

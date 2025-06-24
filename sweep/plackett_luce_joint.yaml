@@ -1,0 +1,44 @@
+---
+program: placket_luce.py
+name: placket_luce_joint_d=5
+method: random
+metric:
+    goal: minimize
+    name: eval/learned_perm_cbc_metric
+parameters:
+    batch_size:
+      values: [32, 64, 128]
+
+    perm_expectation_b_size:
+      values: [32, 64, 128]
+
+    optimizer.lr:
+      values: [0.001, 0.0001]
+
+    perm_optimizer.lr:
+      values: [0.01, 0.001, 0.0001]
+
+    normalize_scores:
+      values: [True, False]
+
+    reinforce_baseline:
+      values: [zero, mean]
+
+    coeff_scheduling_strategy:
+      values: [dwa, constant]
+
+    seed:
+      values: [12346, 267, 3458, 12]
+
+
+command:
+    - ${env}
+    - ./slurm/train_runner.sh
+    - ${args_no_hyphens}
+    - max_epochs=1000
+    - flow_learning_iters=-1
+    - perm_learning_iters=-1
+    - data=default
+    - model=affine_specified
+    - data.graph_generator.num_nodes=5
+    - data.num_samples=2000

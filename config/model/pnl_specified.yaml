@@ -1,0 +1,21 @@
+# A configuration in which the model matches the dataset in terms of being
+# (1) additive or not and (2) the noise type in the latent space.
+_target_: oslow.models.oslow.OSlow
+in_features: ${data.graph_generator.num_nodes} # take the number of nodes from the graph
+layers: [128, 64, 128]
+dropout: null
+num_transforms: 1 # number of transformations to apply (you can change)
+residual: false
+activation:
+  _target_: torch.nn.LeakyReLU
+additive: ${data.additive} # set according to the dataset
+normalization:
+  _target_: oslow.models.normalization.ActNorm
+  _partial_: true
+
+base_distribution:
+  _target_: ${get_torch_distribution:${data.noise_generator.noise_type}}
+  _args_: ${get_torch_distribution_args:${data.noise_generator.noise_type}}
+
+ordering: null
+num_post_nonlinear_transforms: 5

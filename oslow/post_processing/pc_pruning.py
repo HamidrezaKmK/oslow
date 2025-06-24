@@ -19,7 +19,7 @@ indep_method = {
     'g2': gsq
 }
 
-def pc_based_pruning(df: pd.DataFrame, ordering: th.List, independence_test: th.Literal['kci', 'g2']='kci', verbose=True, alpha=0.05):
+def pc_based_pruning(df: pd.DataFrame, ordering: th.List, independence_test: th.Literal['kci', 'g2']='g2', verbose=True, alpha=0.05):
     # change the dataframe to a numpy array
     df_np = df.to_numpy()
     global indep_method

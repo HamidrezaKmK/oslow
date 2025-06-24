@@ -138,8 +138,6 @@ dmypy.json
 # temporary files
 *.tmp
 
-slurm
-
 # temporary data files
 data/*
 temp/*
@@ -184,3 +182,18 @@ results-epoch-*.json
 oslow/post_processing/tmp_*
 **/saved_model
 baselines/launch_baseline.slrm
+
+
+# tex
+docs/*.aux
+docs/*.bbl
+docs/*.fls
+docs/*.out
+docs/*.fdb_latexmk
+docs/*.logs
+docs/*.synctex.gz
+
+run-*
+.temp**
+
+slurm-*.out

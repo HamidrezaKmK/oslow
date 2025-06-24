@@ -1,25 +1,25 @@
 _target_: oslow.data.synthetic.parametric.AffineParametericDataset
-num_samples: 1000
+num_samples: 10000
 graph_generator:
   _target_: oslow.data.synthetic.graph_generator.GraphGenerator
-  graph_type: full
+  graph_type: full  # can be 'erdos_renyi' (random), 'full' (tournament), or 'chain' (path)
   num_nodes: 3
   seed: 42
   enforce_ordering: null
 noise_generator:
   _target_: oslow.data.synthetic.utils.RandomGenerator
-  seed: 1234
+  seed: ${..graph_generator.seed}
   noise_type: normal
   loc: 0
   scale: 1
 link_generator:
   _target_: oslow.data.synthetic.utils.RandomGenerator
-  seed: 5678
+  seed: ${..graph_generator.seed}
   noise_type: uniform
   low: 1
   high: 2
 link: sinusoid
 perform_normalization: true
-additive: false
-post_non_linear_transform: null
+additive: true
+post_non_linear_transform: softplus
 standard: true # very important to set this to true for model ensemble to work better
