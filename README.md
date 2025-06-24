@@ -36,7 +36,10 @@ Simple run:
 python plackett_luce.py
 ```
 
-Run with specific datasets:
+Real world experiments:
+
 ```bash
-python plackett_luce.py data=<dataset>
+python plackett_luce.py +experiment=sachs
+# TODO: add SynTREN
 ```
+

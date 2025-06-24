@@ -32,10 +32,10 @@ device: cuda
 
 reinforce_baseline: zero
 
-restart_flow: true
+restart_flow: false
 
-flow_learning_epochs: 250
-perm_learning_epochs: 30
+flow_learning_epochs: 120
+perm_learning_epochs: 60
 
 perm_optimizer:
   _target_: torch.optim.AdamW

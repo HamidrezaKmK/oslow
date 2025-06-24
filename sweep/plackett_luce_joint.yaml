@@ -24,9 +24,6 @@ parameters:
     reinforce_baseline:
       values: [zero, mean]
 
-    coeff_scheduling_strategy:
-      values: [dwa, constant]
-
     seed:
       values: [12346, 267, 3458, 12]
 

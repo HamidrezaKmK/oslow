@@ -1,0 +1,11 @@
+# @package _global_
+defaults:
+  - override /data@data: sachs
+  - override /model@model: sachs
+  - _self_
+
+# get the base graph using a PC algorithm and run the algorithm 
+# on the connected components separately to orient the graph
+base_graph: pc
+wandb:
+  run_name: plackett_luce_sachs_  # NOTE: This adds this as a prefix to the run name. The run name is automatically generated with the details of the run.

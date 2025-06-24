@@ -1,0 +1,27 @@
+---
+program: placket_luce.py
+name: sachs
+method: grid
+metric:
+  goal: minimize
+  name: eval/learned_perm_cbc_metric
+parameters:
+  perm_learning_epochs:
+    values: [15, 30, 60]
+
+  flow_learning_epochs:
+    values: [30, 60, 120]
+
+  seed:
+    values: [12346, 267, 3458, 12, 42]
+    
+  base_graph:
+    values: [pc, null]
+
+
+command:
+  - ${env}
+  - python
+  - placket_luce.py
+  - +experiment=sachs
+  - ${args_no_hyphens}

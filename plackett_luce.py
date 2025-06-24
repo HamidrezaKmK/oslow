@@ -5,6 +5,7 @@ import torch
 
 import networkx as nx
 import pandas as pd
+import numpy as np
 
 from omegaconf import OmegaConf
 from pprint import pprint
@@ -21,6 +22,9 @@ from oslow.post_processing.cam_pruning import sparse_regression_based_pruning
 from oslow.post_processing.pc_pruning import pc_based_pruning
 from oslow.post_processing.ultimate_pruning import ultimate_pruning
 
+from causallearn.search.ConstraintBased.PC import pc
+from causallearn.utils.PCUtils.SkeletonDiscovery import skeleton_discovery
+from causallearn.utils.cit import kci, gsq, FisherZ, CIT
 
 # TODO compare the best permutation from the training to the actual best permutation at the end
 # TODO Learn the connected component first and then do flow training on it (Placett-Luce on partially ordered lists)
@@ -330,7 +334,6 @@ def init_run_dir(conf, base_name=None):
         resume = False
 
     conf.out_dir = out_dir
-    conf.wandb.resume = resume
     conf.wandb.run_id = run_id
     conf.wandb.run_name = run_name
     return conf
@@ -347,13 +350,12 @@ def metrics_fn(
         dag = ultimate_pruning(samples, order)
     else:
         raise NotImplementedError()
-    return {"SID": sid(true_dag, dag), "SHD": shd(true_dag, dag)}
+    return {"SID": sid(true_dag, dag), "SHD": shd(true_dag, dag), "CBC": backward_relative_penalty(order, true_dag, normalize=True)}
 
 
 @hydra.main(version_base=None, config_path="config", config_name="plackett_luce")
 def main(conf):
     seed_everything(conf.seed)
-
     run_name = None
     if "additive" in conf.data and "graph_generator" in conf.data and "noise_generator" in conf.data:
         model_type = "additive" if conf.data.additive else "affine"
@@ -369,47 +371,80 @@ def main(conf):
                 run_name = f"{link_function}_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
         else:
             run_name = f"nonparametric_{noise_type}_{model_type}_{graph_type}_d{num_nodes}"
+    
+    instantiated = hydra.utils.instantiate(conf)
+    instantiated = init_run_dir(instantiated, run_name)
+    wandb.init(
+        dir=instantiated.out_dir,
+        project=instantiated.wandb.project,
+        config=OmegaConf.to_container(instantiated, resolve=True),
+        name=instantiated.wandb.run_name,
+        id=instantiated.wandb.run_id,
+        # compatible with hydra
+        settings=wandb.Settings(start_method="thread"),
+    )
+    if conf.get("base_graph", None) == "pc":
+        all_values = instantiated.data.samples.values
+        cg = skeleton_discovery(all_values, alpha=0.1, indep_test=CIT(all_values, method='fisherz'))
+        # cg = pc(all_values, 0.001, kci) # , kci
+        base_graph = cg.G.graph
+    else: # assume it is a numpy array
+        base_graph = np.eye(len(instantiated.data.samples.columns), dtype=int) - 1
+    seen = set()
 
-    conf = hydra.utils.instantiate(conf)
-    if conf.test_run:
-        pprint(OmegaConf.to_container(conf, resolve=True))
-    else:
-        conf = init_run_dir(conf, run_name)
-        wandb.init(
-            dir=conf.out_dir,
-            project=conf.wandb.project,
-            config=OmegaConf.to_container(conf, resolve=True),
-            name=conf.wandb.run_name,
-            id=conf.wandb.run_id,
-            resume="allow" if conf.wandb.resume else False,
-            # compatible with hydra
-            settings=wandb.Settings(start_method="thread"),
+    def dfs(graph: np.ndarray, u, columns: List):
+        seen.add(columns.get_loc(u))
+        for v in range(graph.shape[0]):
+            if graph[u, v] != 0 and columns.get_loc(v) not in seen:
+                seen.add(columns.get_loc(v))
+                dfs(graph, v, columns)
+
+    perm_learned = []
+    for i, v in enumerate(instantiated.data.samples.columns):
+        if v in seen:
+            continue
+        seen_before = seen.copy()
+        dfs(base_graph, i, instantiated.data.samples.columns)
+        connected_component = list(seen - seen_before)
+        conf.model.in_features = len(connected_component)
+        conf_instantiated = hydra.utils.instantiate(conf)
+        mapping = {connected_component[j]: j for j in range(len(connected_component))}
+        mapping_rev = {j: connected_component[j] for j in range(len(connected_component))}
+        sub_df = instantiated.data.samples[connected_component]
+        sub_df = sub_df.rename(columns=mapping)
+        sub_graph = nx.subgraph(instantiated.data.dag, connected_component)
+        sub_graph = nx.relabel_nodes(sub_graph, mapping, copy=True)
+        data = OCDDataset(
+            samples=sub_df,
+            dag=sub_graph,
         )
         trainer = PlackettLuceTrainer(
-            model=conf.model,
-            data=conf.data,
-            flow_optimizer=conf.flow_optimizer,
-            flow_batch_size=conf.flow_batch_size,
-            permutation_batch_size=conf.permutation_batch_size,
-            perm_expectation_b_size=conf.perm_expectation_b_size,
-            rounds=conf.rounds,
-            flow_lr_scheduler=conf.flow_lr_scheduler,
-            device=conf.device,
-            reinforce_baseline=conf.reinforce_baseline,
-            flow_learning_epochs=conf.flow_learning_epochs,
-            perm_learning_epochs=conf.perm_learning_epochs,
-            perm_optimizer=conf.perm_optimizer,
-            perm_lr_scheduler=conf.perm_lr_scheduler,
-            normalize_scores=conf.normalize_scores,
-            restart_flow=conf.restart_flow,
+            model=conf_instantiated.model,
+            data=data,
+            flow_optimizer=conf_instantiated.flow_optimizer,
+            flow_batch_size=conf_instantiated.flow_batch_size,
+            permutation_batch_size=conf_instantiated.permutation_batch_size,
+            perm_expectation_b_size=conf_instantiated.perm_expectation_b_size,
+            rounds=conf_instantiated.rounds,
+            flow_lr_scheduler=conf_instantiated.flow_lr_scheduler,
+            device=conf_instantiated.device,
+            reinforce_baseline=conf_instantiated.reinforce_baseline,
+            flow_learning_epochs=conf_instantiated.flow_learning_epochs,
+            perm_learning_epochs=conf_instantiated.perm_learning_epochs,
+            perm_optimizer=conf_instantiated.perm_optimizer,
+            perm_lr_scheduler=conf_instantiated.perm_lr_scheduler,
+            normalize_scores=conf_instantiated.normalize_scores,
+            restart_flow=conf_instantiated.restart_flow,
         )
 
-        perm_learned = trainer.run()
+        perm_learned_ = trainer.run()
+        perm_learned_ = [mapping_rev[i] for i in perm_learned_]
+        perm_learned.extend(perm_learned_)
 
-        if conf.post_processing_method is not None:
-            metrics = metrics_fn(perm_learned, conf.data.samples, conf.data.dag, method=conf.post_processing_method)
-            wandb.log(metrics)
-        wandb.finish()
+    if instantiated.post_processing_method is not None:     
+        metrics = metrics_fn(perm_learned, instantiated.data.samples, instantiated.data.dag, method=instantiated.post_processing_method)
+        wandb.log(metrics)
+    wandb.finish()
 
 
 if __name__ == "__main__":

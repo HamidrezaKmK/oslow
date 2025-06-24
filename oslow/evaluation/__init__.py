@@ -78,7 +78,7 @@ def count_backward(perm: th.List[int], dag: th.Union[np.array, nx.DiGraph]):
     return count
 
 
-def backward_relative_penalty(perm: th.List[int], dag: th.Union[np.array, nx.DiGraph]):
+def backward_relative_penalty(perm: th.List[int], dag: th.Union[np.array, nx.DiGraph], normalize: bool = False):
     """
     Args:
         perm (list): permutation of the nodes (or a list of permutations)
@@ -99,7 +99,7 @@ def backward_relative_penalty(perm: th.List[int], dag: th.Union[np.array, nx.DiG
                 all_edges += 1
                 if i < j:
                     backwards += 1
-    return 1.0 * backwards / all_edges
+    return 1.0 * backwards / all_edges if normalize else backwards
 
 
 def shd(true_dag: nx.DiGraph, estimated_dag: nx.DiGraph, with_change_orientation=False):
