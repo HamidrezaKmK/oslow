@@ -385,12 +385,6 @@ def main(conf):
             # compatible with hydra
             settings=wandb.Settings(start_method="thread"),
         )
-
-        wandb.define_metric("flow/step")
-        wandb.define_metric("permutation/step")
-        wandb.define_metric("flow/*", step_metric="flow/step")
-        wandb.define_metric("permutation/*", step_metric="permutation/step")
-
         trainer = PlackettLuceTrainer(
             model=conf.model,
             data=conf.data,

@@ -95,7 +95,7 @@ def init_run_dir(conf, base_name=None):
     return conf
 
 
-@hydra.main(version_base=None, config_path="config", config_name="ensemble_sweep")
+@hydra.main(version_base=None, config_path="config", config_name="ensemble")
 def main(conf):
     seed_everything(conf.seed)
     run_name = None

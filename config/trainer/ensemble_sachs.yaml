@@ -1,4 +1,4 @@
-logging_scatterplot_frequency: 10
+logging_scatterplot_frequency: 500
 
 _target_: oslow.ensemble.EnsembleTrainer
 _partial_: true
@@ -6,7 +6,7 @@ device: cuda
 
 perm_list: ${get_random_permutations_subset:11,1000}
 
-max_epochs: 100
+max_epochs: 500
 
 flow_optimizer:
   _target_: torch.optim.AdamW

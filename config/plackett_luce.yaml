@@ -32,10 +32,10 @@ device: cuda
 
 reinforce_baseline: zero
 
-restart_flow: false
+restart_flow: true
 
-flow_learning_epochs: 150
-perm_learning_epochs: 15
+flow_learning_epochs: 250
+perm_learning_epochs: 30
 
 perm_optimizer:
   _target_: torch.optim.AdamW
@@ -48,7 +48,7 @@ perm_lr_scheduler:
 
 normalize_scores: true
 
-post_processing_method: pc
+post_processing_method: cam
 
 wandb:
   run_name: plackett_luce_  # NOTE: This adds this as a prefix to the run name. The run name is automatically generated with the details of the run.
