@@ -4,7 +4,7 @@ name: sachs
 method: grid
 metric:
   goal: minimize
-  name: eval/learned_perm_cbc_metric
+  name: CBC
 parameters:
   perm_learning_epochs:
     values: [15, 30, 60]
@@ -22,6 +22,6 @@ parameters:
 command:
   - ${env}
   - python
-  - placket_luce.py
+  - plackett_luce.py
   - +experiment=sachs
   - ${args_no_hyphens}
