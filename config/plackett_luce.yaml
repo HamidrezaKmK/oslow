@@ -34,8 +34,8 @@ reinforce_baseline: zero
 
 restart_flow: false
 
-flow_learning_epochs: 120
-perm_learning_epochs: 60
+flow_learning_epochs: 30
+perm_learning_epochs: 30
 
 perm_optimizer:
   _target_: torch.optim.AdamW

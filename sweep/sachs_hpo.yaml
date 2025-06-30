@@ -1,0 +1,38 @@
+---
+program: placket_luce.py
+name: sachs_hpo
+method: grid
+metric:
+  goal: minimize
+  name: CBC
+parameters:
+
+  rounds:
+    values: [10, 20]
+
+  perm_learning_epochs:
+    values: [30, 60]
+
+  flow_learning_epochs:
+    values: [30, 60]
+
+  seed:
+    values: [12346, 267, 3458, 12, 42]
+  
+  model.base_distribution._target_:
+    values: 
+      - torch.distributions.Normal
+      - torch.distributions.Laplace
+  
+  model.additive:
+    values: [true, false]
+  
+  post_processing_method:
+    values: [cam, pc]
+
+command:
+  - ${env}
+  - python
+  - plackett_luce.py
+  - +experiment=sachs
+  - ${args_no_hyphens}
